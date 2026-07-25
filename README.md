@@ -59,7 +59,7 @@ App configuration:
 | App Directory | (root) |
 | Framework preset | No Preset |
 | Install command | `cd client && npm install` |
-| Build command | `deno task build:deploy` |
+| Build command | `deno run --allow-run --allow-read --allow-write --allow-env build.ts` |
 | Pre-deploy command | *(blank)* |
 | Runtime Configuration | Dynamic App |
 | Entrypoint | `server/main.ts` |
@@ -70,19 +70,25 @@ App configuration:
 so App Directory and Runtime Working Directory both need to stay at the repo
 root (not `client/`) for the built frontend to be found.
 
-The Install and Build commands are deliberately split and don't overlap:
-Deno Deploy's Install step gets special platform handling that provisions a
-real `npm` on the fly, but that provisioning doesn't carry over to the Build
-step — a bare `npm` call there fails with "command not found". So
-`deno task build:deploy` (`cd client && node_modules/.bin/tsc -b &&
-node_modules/.bin/vite build`) calls the already-installed binaries directly
-instead of going through `npm` again. `deno task build`, used for local
-one-shot builds, still runs `npm install` itself since there's no separate
-install step locally.
+`build.ts` (repo root) runs `tsc` and `vite build` programmatically via
+`Deno.Command`, with explicit argument arrays rather than a shell string.
+Two Deploy-specific quirks led here:
 
-`deno task build` runs `npm install` before `npm run build` itself, so there's
-no separate Install command needed — this avoids relying on the Install and
-Build steps sharing a working environment.
+1. Deploy's Install step gets special platform handling that provisions a
+   real `npm` on the fly, but that provisioning doesn't carry over to the
+   Build step — a bare `npm` call there fails with "command not found". So
+   the build calls the already-installed `tsc`/`vite` entry scripts directly
+   via `node` (itself only resolvable through Deno's own subprocess-spawning,
+   not on the sandbox's plain `$PATH`), instead of going through `npm` again.
+2. Passing a `&&`-chained multi-word shell string as the Build command (either
+   directly, or via `deno task`) was unreliable in Deploy's actual build
+   sandbox — arguments after the first word of a command were sometimes
+   treated as separate commands of their own ("command not found" on a token
+   that was never meant to run standalone). `Deno.Command` with an explicit
+   `args` array sidesteps shell parsing entirely, so this doesn't come up.
+
+`deno task build`, used for local one-shot builds, still runs `npm install`
+itself since there's no separate install step locally.
 
 ## Data model (Deno KV)
 
