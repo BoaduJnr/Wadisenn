@@ -3,7 +3,7 @@
     "dev:server": "deno run --allow-net --allow-read --allow-write --allow-env --unstable-kv --watch server/main.ts",
     "dev:client": "cd client && npm run dev",
     "dev": "deno task dev:server & deno task dev:client",
-    "build": "cd client && npm run build",
+    "build": "cd client && npm install && npm run build",
     "start": "deno run --allow-net --allow-read --allow-write --allow-env --unstable-kv server/main.ts"
   },
   "imports": {

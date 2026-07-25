@@ -58,7 +58,7 @@ App configuration:
 |---|---|
 | App Directory | (root) |
 | Framework preset | No Preset |
-| Install command | `cd client && npm install` |
+| Install command | *(blank)* |
 | Build command | `deno task build` |
 | Pre-deploy command | *(blank)* |
 | Runtime Configuration | Dynamic App |
@@ -69,6 +69,10 @@ App configuration:
 `server/main.ts` resolves `./client/dist` relative to the working directory,
 so App Directory and Runtime Working Directory both need to stay at the repo
 root (not `client/`) for the built frontend to be found.
+
+`deno task build` runs `npm install` before `npm run build` itself, so there's
+no separate Install command needed — this avoids relying on the Install and
+Build steps sharing a working environment.
 
 ## Data model (Deno KV)
 
