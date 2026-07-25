@@ -9,7 +9,9 @@ build up day by day.
 
 - **Backend:** [Deno](https://deno.com/) + [Deno KV](https://docs.deno.com/deploy/kv/manual/) for storage, no framework — a small hand-rolled router.
 - **Frontend:** React + Vite + TypeScript + Tailwind CSS, charts via [recharts](https://recharts.org/).
-- Single user, no login. Data lives locally in `./data/wadisenn.db`.
+- Single user, no login. Data lives locally in `./data/wadisenn.db`; when
+  running on Deno Deploy it automatically binds to Deploy's managed KV
+  database instead (detected via the `DENO_DEPLOYMENT_ID` env var).
 
 ## Project layout
 
@@ -47,6 +49,26 @@ deno task start    # serves the API and the built client at http://localhost:800
 ```
 
 Other tasks: `deno task dev:server` / `deno task dev:client` run just one side.
+
+## Deploying (Deno Deploy)
+
+App configuration:
+
+| Field | Value |
+|---|---|
+| App Directory | (root) |
+| Framework preset | No Preset |
+| Install command | `cd client && npm install` |
+| Build command | `deno task build` |
+| Pre-deploy command | *(blank)* |
+| Runtime Configuration | Dynamic App |
+| Entrypoint | `server/main.ts` |
+| Arguments | *(blank)* |
+| Runtime Working Directory | *(blank — defaults to App Directory)* |
+
+`server/main.ts` resolves `./client/dist` relative to the working directory,
+so App Directory and Runtime Working Directory both need to stay at the repo
+root (not `client/`) for the built frontend to be found.
 
 ## Data model (Deno KV)
 

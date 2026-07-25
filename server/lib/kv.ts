@@ -2,7 +2,11 @@ let kvInstance: Deno.Kv | null = null;
 
 export async function getKv(): Promise<Deno.Kv> {
   if (!kvInstance) {
-    kvInstance = await Deno.openKv("./data/wadisenn.db");
+    // On Deno Deploy, openKv() with no path binds to the managed KV database.
+    // Locally, keep using an explicit project file so existing data isn't orphaned.
+    kvInstance = Deno.env.get("DENO_DEPLOYMENT_ID")
+      ? await Deno.openKv()
+      : await Deno.openKv("./data/wadisenn.db");
   }
   return kvInstance;
 }
