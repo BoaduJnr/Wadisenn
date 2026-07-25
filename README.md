@@ -58,8 +58,8 @@ App configuration:
 |---|---|
 | App Directory | (root) |
 | Framework preset | No Preset |
-| Install command | *(blank)* |
-| Build command | `deno task build` |
+| Install command | `cd client && npm install` |
+| Build command | `deno task build:deploy` |
 | Pre-deploy command | *(blank)* |
 | Runtime Configuration | Dynamic App |
 | Entrypoint | `server/main.ts` |
@@ -69,6 +69,16 @@ App configuration:
 `server/main.ts` resolves `./client/dist` relative to the working directory,
 so App Directory and Runtime Working Directory both need to stay at the repo
 root (not `client/`) for the built frontend to be found.
+
+The Install and Build commands are deliberately split and don't overlap:
+Deno Deploy's Install step gets special platform handling that provisions a
+real `npm` on the fly, but that provisioning doesn't carry over to the Build
+step — a bare `npm` call there fails with "command not found". So
+`deno task build:deploy` (`cd client && node_modules/.bin/tsc -b &&
+node_modules/.bin/vite build`) calls the already-installed binaries directly
+instead of going through `npm` again. `deno task build`, used for local
+one-shot builds, still runs `npm install` itself since there's no separate
+install step locally.
 
 `deno task build` runs `npm install` before `npm run build` itself, so there's
 no separate Install command needed — this avoids relying on the Install and
