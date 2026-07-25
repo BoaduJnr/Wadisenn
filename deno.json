@@ -4,7 +4,7 @@
     "dev:client": "cd client && node node_modules/vite/bin/vite.js",
     "dev": "deno task dev:server & deno task dev:client",
     "build": "cd client && npm install && npm run build",
-    "build:deploy": "cd client && node node_modules/typescript/bin/tsc -b && node node_modules/vite/bin/vite.js build",
+    "build:deploy": "cd client && echo MARK_TSC_START && node node_modules/typescript/bin/tsc -b && echo MARK_TSC_DONE && node node_modules/vite/bin/vite.js build && echo MARK_VITE_DONE",
     "start": "deno run --allow-net --allow-read --allow-write --allow-env --unstable-kv server/main.ts"
   },
   "imports": {
