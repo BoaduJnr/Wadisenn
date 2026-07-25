@@ -4,6 +4,7 @@
     "dev:client": "cd client && npm run dev",
     "dev": "deno task dev:server & deno task dev:client",
     "build": "cd client && npm install && npm run build",
+    "build:deploy": "cd client && node_modules/.bin/tsc -b && node_modules/.bin/vite build",
     "start": "deno run --allow-net --allow-read --allow-write --allow-env --unstable-kv server/main.ts"
   },
   "imports": {
