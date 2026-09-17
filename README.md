@@ -199,6 +199,38 @@ when nothing has ever been cached does the app fall back to showing base-currenc
 amounts. A failed fetch backs off for ten minutes and never overwrites a good
 snapshot.
 
+## Installed app (PWA)
+
+`client/public/manifest.webmanifest` makes the app installable: `start_url` is
+`/app`, so installing lands on the tracker rather than the marketing page, and
+`display: standalone` drops the browser chrome. Android Chrome needs this file
+to offer installation at all; iOS uses the `apple-touch-icon` link instead.
+
+Icons are a violet rounded tile with a white W, matching the wordmark in
+`AppHeader`. There are three: 192 and 512 for Android, a 512 `maskable` one
+whose glyph sits inside the middle 80% so a circular or squircle mask cannot
+clip it, and a 180 PNG for iOS.
+
+### Device insets
+
+`index.html` sets `viewport-fit=cover` and, on iOS,
+`apple-mobile-web-app-status-bar-style=black-translucent`. Together those put
+the page *under* the status bar and the home indicator, which is what allows the
+header's own colour to fill the strip behind the clock and battery — but it also
+means anything pinned to an edge has to pad itself back out, or its contents end
+up beneath the system UI.
+
+`client/src/index.css` exposes the four insets as `--safe-top`, `--safe-right`,
+`--safe-bottom` and `--safe-left`, each with a `0px` fallback so they are inert
+in a desktop browser, and four utilities built on them:
+
+| Class | Used by | Purpose |
+|---|---|---|
+| `pane-top` | `AppHeader`, the landing header | pads the bar so its contents clear the status bar while its background still fills that strip |
+| `pane-bottom` | `BottomNav` | keeps the tab row above the home indicator |
+| `pb-nav` | every tracker view | scroll clearance for the fixed nav: its height, its inset, and some air |
+| `px-safe` | tracker views and header rows | side gutters that survive a landscape notch; 1rem matches `px-4`, so it only ever adds room |
+
 ## Theme
 
 Colours, fonts and planes are CSS custom properties set in

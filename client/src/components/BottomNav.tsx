@@ -71,7 +71,7 @@ const TABS: { key: ViewKey; label: string; icon: ReactNode }[] = [
 export function BottomNav({ active, onChange }: { active: ViewKey; onChange: (key: ViewKey) => void }) {
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-20 border-t"
+      className="pane-bottom fixed bottom-0 inset-x-0 z-20 border-t"
       style={{ background: "var(--surface-1)", borderColor: "var(--border)" }}
     >
       <div className="max-w-md mx-auto grid grid-cols-6">

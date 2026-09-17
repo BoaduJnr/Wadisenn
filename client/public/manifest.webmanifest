@@ -1,0 +1,17 @@
+{
+  "name": "Wadisenn",
+  "short_name": "Wadisenn",
+  "description": "Rent and bills come out first. Wadisenn tracks what is genuinely left to spend.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#171233",
+  "theme_color": "#171233",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

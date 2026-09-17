@@ -21,7 +21,7 @@ export function AddExpenseView({
   }
 
   return (
-    <div className="flex flex-col gap-4 px-4 pt-4 pb-28 max-w-md mx-auto">
+    <div className="flex flex-col gap-4 px-safe pt-4 pb-nav max-w-md mx-auto">
       {confirmation && (
         <div
           className="rounded-lg px-4 py-2.5 text-sm font-medium text-center"

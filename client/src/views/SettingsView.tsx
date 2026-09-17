@@ -1,9 +1,17 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FocusEvent, type FormEvent } from "react";
 import { addAddOn, deleteAddOn, saveMonthRecord, saveSettings } from "../api";
 import { useMonthRecord } from "../hooks/useMonthRecord";
 import { monthLabel } from "../lib/format";
 import { ratesAsOf, selectableCurrencies, type Money } from "../lib/money";
 import type { RatesResponse, Settings } from "../types";
+
+/**
+ * Selects the contents when a field is showing a bare 0, so the first
+ * keystroke replaces it instead of producing "07700".
+ */
+function selectIfZero(event: FocusEvent<HTMLInputElement>) {
+  if (event.target.value === "0") event.target.select();
+}
 
 export function SettingsView({
   month,
@@ -24,12 +32,19 @@ export function SettingsView({
 }) {
   const { record, loading, refetch } = useMonthRecord(month);
 
-  const [salaryInput, setSalaryInput] = useState("");
-  const [currencyInput, setCurrencyInput] = useState("");
+  /*
+   * null means the field has not been touched, so it shows whatever is
+   * stored. An empty string means the user deliberately cleared it, which is
+   * why these cannot be plain strings with a `||` fallback: that treats a
+   * cleared field as untouched and instantly restores the old value, making
+   * a stored 0 impossible to delete.
+   */
+  const [salaryInput, setSalaryInput] = useState<string | null>(null);
+  const [currencyInput, setCurrencyInput] = useState<string | null>(null);
   const [savingSalary, setSavingSalary] = useState(false);
   const [salaryMessage, setSalaryMessage] = useState<string | null>(null);
 
-  const [overrideInput, setOverrideInput] = useState("");
+  const [overrideInput, setOverrideInput] = useState<string | null>(null);
   const [savingOverride, setSavingOverride] = useState(false);
 
   const [addOnLabel, setAddOnLabel] = useState("");
@@ -38,23 +53,23 @@ export function SettingsView({
 
   const [savingDisplay, setSavingDisplay] = useState(false);
 
-  const [tbillInput, setTbillInput] = useState("");
-  const [inflationInput, setInflationInput] = useState("");
-  const [loanAprInput, setLoanAprInput] = useState("");
+  const [tbillInput, setTbillInput] = useState<string | null>(null);
+  const [inflationInput, setInflationInput] = useState<string | null>(null);
+  const [loanAprInput, setLoanAprInput] = useState<string | null>(null);
   const [savingMarket, setSavingMarket] = useState(false);
   const [marketMessage, setMarketMessage] = useState<string | null>(null);
 
   const base = money.base;
-  const effectiveSalaryInput = salaryInput || (settings ? String(settings.defaultMonthlySalary) : "");
-  const effectiveCurrencyInput = currencyInput || base;
+  const effectiveSalaryInput = salaryInput ?? (settings ? String(settings.defaultMonthlySalary) : "");
+  const effectiveCurrencyInput = currencyInput ?? base;
   const effectiveOverrideInput =
-    overrideInput || (record?.salaryOverride !== undefined ? String(record.salaryOverride) : "");
+    overrideInput ?? (record?.salaryOverride !== undefined ? String(record.salaryOverride) : "");
 
   const market = settings?.marketContext;
   const numberOrBlank = (value?: number) => (value === undefined ? "" : String(value));
-  const effectiveTbill = tbillInput || numberOrBlank(market?.tbillRate);
-  const effectiveInflation = inflationInput || numberOrBlank(market?.inflation);
-  const effectiveLoanApr = loanAprInput || numberOrBlank(market?.loanApr);
+  const effectiveTbill = tbillInput ?? numberOrBlank(market?.tbillRate);
+  const effectiveInflation = inflationInput ?? numberOrBlank(market?.inflation);
+  const effectiveLoanApr = loanAprInput ?? numberOrBlank(market?.loanApr);
 
   const currencyOptions = selectableCurrencies(base, rates);
   const asOf = ratesAsOf(money.fetchedAt ?? rates?.fetchedAt ?? null);
@@ -69,6 +84,8 @@ export function SettingsView({
         displayCurrency: settings?.displayCurrency,
         marketContext: settings?.marketContext,
       });
+      setSalaryInput(null);
+      setCurrencyInput(null);
       onSettingsChanged();
       setSalaryMessage("Saved");
       setTimeout(() => setSalaryMessage(null), 1500);
@@ -113,6 +130,9 @@ export function SettingsView({
           loanApr: parse(effectiveLoanApr),
         },
       });
+      setTbillInput(null);
+      setInflationInput(null);
+      setLoanAprInput(null);
       onSettingsChanged();
       setMarketMessage("Saved");
       setTimeout(() => setMarketMessage(null), 1500);
@@ -130,7 +150,7 @@ export function SettingsView({
         salaryOverride: value === "" ? null : Number(value),
         addOns: record?.addOns ?? [],
       });
-      setOverrideInput("");
+      setOverrideInput(null);
       refetch();
     } finally {
       setSavingOverride(false);
@@ -158,7 +178,7 @@ export function SettingsView({
   }
 
   return (
-    <div className="flex flex-col gap-4 px-4 pt-4 pb-28 max-w-md mx-auto">
+    <div className="flex flex-col gap-4 px-safe pt-4 pb-nav max-w-md mx-auto">
       <h1 className="font-display text-lg font-bold" style={{ color: "var(--text-primary)" }}>
         Setup
       </h1>
@@ -183,6 +203,7 @@ export function SettingsView({
             min="0"
             value={effectiveSalaryInput}
             onChange={(e) => setSalaryInput(e.target.value)}
+            onFocus={selectIfZero}
             className="h-11 flex-1 rounded-lg border px-3 font-display font-bold tabular-nums"
             style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
           />
@@ -317,6 +338,7 @@ export function SettingsView({
                 max="1000"
                 value={field.value}
                 onChange={(e) => field.onChange(e.target.value)}
+                onFocus={selectIfZero}
                 placeholder={field.placeholder}
                 className="h-10 w-24 shrink-0 rounded-lg border px-2 text-right font-semibold tabular-nums"
                 style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
@@ -360,6 +382,7 @@ export function SettingsView({
           placeholder={settings ? String(settings.defaultMonthlySalary) : "0"}
           value={effectiveOverrideInput}
           onChange={(e) => setOverrideInput(e.target.value)}
+          onFocus={selectIfZero}
           className="h-11 rounded-lg border px-3 font-semibold tabular-nums"
           style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
         />

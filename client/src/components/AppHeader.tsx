@@ -3,10 +3,10 @@ import { navigate } from "../lib/navigation";
 export function AppHeader() {
   return (
     <header
-      className="sticky top-0 z-20 border-b backdrop-blur-lg"
+      className="pane-top sticky top-0 z-20 border-b backdrop-blur-lg"
       style={{ background: "var(--header-plane)", borderColor: "rgba(255,255,255,0.08)" }}
     >
-      <div className="mx-auto flex h-14 max-w-md items-center justify-between px-4">
+      <div className="px-safe mx-auto flex h-14 max-w-md items-center justify-between">
         <span className="inline-flex items-center gap-2">
           <span
             className="grid h-7 w-7 place-items-center rounded-md font-display text-xs font-extrabold"

@@ -24,7 +24,7 @@ export function DashboardView({
   const { summaries: history } = useMonthHistory();
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-4 px-4 pt-2 pb-28">
+    <div className="mx-auto flex max-w-md flex-col gap-4 px-safe pt-2 pb-nav">
       <MonthPicker month={month} onChange={onMonthChange} />
 
       {loading && (

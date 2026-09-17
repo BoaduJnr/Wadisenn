@@ -48,7 +48,7 @@ export function ExpenseListView({
   }
 
   return (
-    <div className="flex flex-col gap-2 px-4 pt-2 pb-28 max-w-md mx-auto">
+    <div className="flex flex-col gap-2 px-safe pt-2 pb-nav max-w-md mx-auto">
       <MonthPicker month={month} onChange={onMonthChange} />
 
       {loading && (

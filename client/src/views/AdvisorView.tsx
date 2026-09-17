@@ -128,7 +128,7 @@ export function AdvisorView() {
   }
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-3 px-4 pt-4 pb-28">
+    <div className="mx-auto flex max-w-md flex-col gap-3 px-safe pt-4 pb-nav">
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="font-display text-lg font-bold" style={{ color: "var(--text-primary)" }}>

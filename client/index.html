@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Without a manifest, Android Chrome will not install the app or run it
+         standalone, so the safe-area work below would never come into play. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- iOS ignores the manifest icons and uses this one. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#171233" />
     <title>Wadisenn: rent first, then what is really yours to spend</title>

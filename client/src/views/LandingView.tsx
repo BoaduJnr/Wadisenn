@@ -276,10 +276,10 @@ const NAV_LINKS = [
 function Header() {
   return (
     <header
-      className="sticky top-0 z-20 border-b backdrop-blur-lg"
+      className="pane-top sticky top-0 z-20 border-b backdrop-blur-lg"
       style={{ background: "var(--header-plane)", borderColor: "rgba(255,255,255,0.08)" }}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+      <div className="px-safe mx-auto flex h-16 max-w-6xl items-center justify-between sm:px-6">
         <Wordmark onDark />
         <nav className="flex items-center gap-1 sm:gap-5">
           {NAV_LINKS.map((link) => (
