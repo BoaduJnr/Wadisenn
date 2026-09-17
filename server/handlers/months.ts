@@ -1,20 +1,21 @@
 import type { AddOn, MonthRecord } from "../../shared/types.ts";
-import { monthKey, monthsPrefix } from "../lib/kv.ts";
+import { monthKey, monthsPrefix } from "../lib/keys.ts";
 import { computeMonthSummary } from "../lib/aggregate.ts";
 import { json } from "../lib/http.ts";
 import { ulid } from "../lib/ulid.ts";
+import type { Store } from "../lib/store.ts";
 
-async function getMonthRecord(kv: Deno.Kv, month: string): Promise<MonthRecord> {
+async function getMonthRecord(kv: Store, month: string): Promise<MonthRecord> {
   const entry = await kv.get<MonthRecord>(monthKey(month));
   return entry.value ?? { month, addOns: [] };
 }
 
-export async function getMonthHandler(_req: Request, kv: Deno.Kv, params: Record<string, string>): Promise<Response> {
+export async function getMonthHandler(_req: Request, kv: Store, params: Record<string, string>): Promise<Response> {
   const record = await getMonthRecord(kv, params.month);
   return json(record);
 }
 
-export async function putMonthHandler(req: Request, kv: Deno.Kv, params: Record<string, string>): Promise<Response> {
+export async function putMonthHandler(req: Request, kv: Store, params: Record<string, string>): Promise<Response> {
   const body = (await req.json()) as { salaryOverride?: number | null; addOns: AddOn[] };
   const record: MonthRecord = {
     month: params.month,
@@ -25,7 +26,7 @@ export async function putMonthHandler(req: Request, kv: Deno.Kv, params: Record<
   return json(record);
 }
 
-export async function postAddOnHandler(req: Request, kv: Deno.Kv, params: Record<string, string>): Promise<Response> {
+export async function postAddOnHandler(req: Request, kv: Store, params: Record<string, string>): Promise<Response> {
   const body = (await req.json()) as { label: string; amount: number };
   if (!body.label || typeof body.amount !== "number" || !Number.isFinite(body.amount)) {
     return json({ error: "label and amount are required" }, 400);
@@ -44,7 +45,7 @@ export async function postAddOnHandler(req: Request, kv: Deno.Kv, params: Record
 
 export async function deleteAddOnHandler(
   _req: Request,
-  kv: Deno.Kv,
+  kv: Store,
   params: Record<string, string>,
 ): Promise<Response> {
   const record = await getMonthRecord(kv, params.month);
@@ -55,14 +56,14 @@ export async function deleteAddOnHandler(
 
 export async function getMonthSummaryHandler(
   _req: Request,
-  kv: Deno.Kv,
+  kv: Store,
   params: Record<string, string>,
 ): Promise<Response> {
   const summary = await computeMonthSummary(kv, params.month);
   return json(summary);
 }
 
-export async function listMonthsHandler(_req: Request, kv: Deno.Kv): Promise<Response> {
+export async function listMonthsHandler(_req: Request, kv: Store): Promise<Response> {
   const months = new Set<string>();
   for await (const entry of kv.list<MonthRecord>({ prefix: monthsPrefix() })) {
     months.add(entry.value.month);

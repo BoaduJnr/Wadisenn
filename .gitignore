@@ -1,4 +1,12 @@
 node_modules/
 client/dist/
-data/
 *.local
+
+# Old Deno KV database and its export, both of which hold real financial data
+data/
+kv-export.json
+
+# Local secrets (GEMINI_API_KEY, etc.) — never commit these
+.env
+.env.*
+!.env.example

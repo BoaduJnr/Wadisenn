@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+
+    /* Node 24 runs TypeScript by stripping types, so nothing is emitted here
+       and source keeps its .ts import specifiers. */
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": false,
+    "erasableSyntaxOnly": true,
+
+    "types": ["node"]
+  },
+  "include": ["server/**/*.ts", "shared/**/*.ts", "scripts/**/*.ts"],
+  /* The one remaining Deno file, kept only until the old data is migrated. */
+  "exclude": ["**/*.deno.ts"]
+}

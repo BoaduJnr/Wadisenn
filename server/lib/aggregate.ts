@@ -1,5 +1,7 @@
-import type { AddOn, Expense, MonthSummary, Settings } from "../../shared/types.ts";
-import { expensesPrefix, monthKey, settingsKey } from "./kv.ts";
+import type { AddOn, Commitment, Expense, MonthSummary, Settings } from "../../shared/types.ts";
+import { commitmentsForMonth, round2 } from "../../shared/commitments.ts";
+import { commitmentsPrefix, expensesPrefix, monthKey, settingsKey } from "./keys.ts";
+import type { Store } from "./store.ts";
 
 export function daysInMonth(month: string): number {
   const [year, m] = month.split("-").map(Number);
@@ -15,12 +17,12 @@ export function dayOfMonth(dateStr: string): number {
   return Number(dateStr.split("-")[2]);
 }
 
-export async function getSettings(kv: Deno.Kv): Promise<Settings> {
+export async function getSettings(kv: Store): Promise<Settings> {
   const entry = await kv.get<Settings>(settingsKey());
   return entry.value ?? { defaultMonthlySalary: 0, currency: "GHS" };
 }
 
-export async function listExpenses(kv: Deno.Kv, month: string): Promise<Expense[]> {
+export async function listExpenses(kv: Store, month: string): Promise<Expense[]> {
   const expenses: Expense[] = [];
   for await (const entry of kv.list<Expense>({ prefix: expensesPrefix(month) })) {
     expenses.push(entry.value);
@@ -29,17 +31,35 @@ export async function listExpenses(kv: Deno.Kv, month: string): Promise<Expense[
   return expenses;
 }
 
-export async function computeMonthSummary(kv: Deno.Kv, month: string): Promise<MonthSummary> {
-  const [settings, monthRecordEntry, expenses] = await Promise.all([
+export async function listCommitments(kv: Store): Promise<Commitment[]> {
+  const commitments: Commitment[] = [];
+  for await (const entry of kv.list<Commitment>({ prefix: commitmentsPrefix() })) {
+    commitments.push(entry.value);
+  }
+  commitments.sort(
+    (a, b) =>
+      a.cadence.localeCompare(b.cadence) || b.amount - a.amount || a.label.localeCompare(b.label),
+  );
+  return commitments;
+}
+
+export async function computeMonthSummary(kv: Store, month: string): Promise<MonthSummary> {
+  const [settings, monthRecordEntry, expenses, allCommitments] = await Promise.all([
     getSettings(kv),
     kv.get<{ month: string; salaryOverride?: number; addOns: AddOn[] }>(monthKey(month)),
     listExpenses(kv, month),
+    listCommitments(kv),
   ]);
 
   const monthRecord = monthRecordEntry.value ?? { month, addOns: [] };
   const base = monthRecord.salaryOverride ?? settings.defaultMonthlySalary;
   const addOnsTotal = monthRecord.addOns.reduce((sum, a) => sum + a.amount, 0);
   const incomeTotal = base + addOnsTotal;
+
+  // Fixed commitments come out of income before any logged spending counts, so
+  // "budget" is the discretionary slice and "remaining" is what is truly free.
+  const commitments = commitmentsForMonth(allCommitments, month);
+  const budget = round2(incomeTotal - commitments.total);
 
   const totalSpent = expenses.reduce((sum, e) => sum + e.amount, 0);
   const totalDays = daysInMonth(month);
@@ -66,14 +86,16 @@ export async function computeMonthSummary(kv: Deno.Kv, month: string): Promise<M
     const daysElapsed = Math.min(today, totalDays);
     const avgDailySpend = daysElapsed > 0 ? totalSpent / daysElapsed : 0;
     projectedTotalSpend = avgDailySpend * totalDays;
-    projectedRemaining = incomeTotal - projectedTotalSpend;
+    projectedRemaining = budget - projectedTotalSpend;
   }
 
   return {
     month,
     income: { base, addOns: monthRecord.addOns, total: incomeTotal },
+    commitments,
+    budget,
     totalSpent,
-    remaining: incomeTotal - totalSpent,
+    remaining: round2(budget - totalSpent),
     dailyCumulative,
     isCurrentMonth,
     projectedTotalSpend,

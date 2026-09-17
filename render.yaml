@@ -1,0 +1,26 @@
+# Render blueprint. Create the service from this file, or configure the same
+# values by hand in the dashboard.
+#
+# MONGODB_URI is marked sync:false so it is never stored in the repo — Render
+# prompts for it once and keeps it as a secret.
+services:
+  - type: web
+    name: wadisenn
+    runtime: node
+    plan: free
+    region: oregon
+    # Installs server deps, then the client's, then builds the client bundle.
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/settings
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB
+        value: wadisenn
+      # Optional: leave unset and the Advice tab reports itself switched off.
+      - key: GEMINI_API_KEY
+        sync: false

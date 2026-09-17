@@ -11,17 +11,20 @@ export function StatTile({
 }) {
   return (
     <div
-      className="rounded-2xl border p-4 flex flex-col gap-1"
+      className="flex flex-col gap-1 rounded-xl border p-3.5"
       style={{ background: "var(--surface-1)", borderColor: "var(--border)" }}
     >
-      <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+      <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted)" }}>
         {label}
       </span>
-      <span className="text-xl font-semibold tabular-nums" style={{ color: accent ?? "var(--text-primary)" }}>
+      <span
+        className="font-display text-lg font-bold tabular-nums"
+        style={{ color: accent ?? "var(--text-primary)" }}
+      >
         {value}
       </span>
       {sub && (
-        <span className="text-xs" style={{ color: "var(--muted)" }}>
+        <span className="text-[11px] leading-snug" style={{ color: "var(--muted)" }}>
           {sub}
         </span>
       )}

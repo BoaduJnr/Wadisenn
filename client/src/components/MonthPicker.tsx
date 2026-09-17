@@ -14,7 +14,7 @@ export function MonthPicker({ month, onChange }: { month: string; onChange: (mon
           <path strokeLinecap="round" strokeLinejoin="round" d="m15 18-6-6 6-6" />
         </svg>
       </button>
-      <span className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+      <span className="font-display text-base font-bold" style={{ color: "var(--text-primary)" }}>
         {monthLabel(month)}
       </span>
       <button

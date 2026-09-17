@@ -1,17 +1,18 @@
 import type { Expense } from "../../shared/types.ts";
-import { expenseKey } from "../lib/kv.ts";
+import { expenseKey } from "../lib/keys.ts";
 import { listExpenses } from "../lib/aggregate.ts";
 import { json } from "../lib/http.ts";
 import { ulid } from "../lib/ulid.ts";
+import type { Store } from "../lib/store.ts";
 
-export async function listExpensesHandler(_req: Request, kv: Deno.Kv, params: Record<string, string>): Promise<Response> {
+export async function listExpensesHandler(_req: Request, kv: Store, params: Record<string, string>): Promise<Response> {
   const expenses = await listExpenses(kv, params.month);
   return json(expenses);
 }
 
 export async function createExpenseHandler(
   req: Request,
-  kv: Deno.Kv,
+  kv: Store,
   params: Record<string, string>,
 ): Promise<Response> {
   const body = (await req.json()) as { date: string; amount: number; category: string; note?: string };
@@ -19,6 +20,9 @@ export async function createExpenseHandler(
     return json({ error: "date, amount, and category are required" }, 400);
   }
 
+  // Insert-if-absent rather than a plain write, so a ULID collision can never
+  // silently overwrite an existing expense. Retried a couple of times because
+  // losing the race is recoverable by simply picking another id.
   for (let attempt = 0; attempt < 3; attempt++) {
     const id = ulid();
     const expense: Expense = {
@@ -30,16 +34,16 @@ export async function createExpenseHandler(
       note: body.note,
       createdAt: new Date().toISOString(),
     };
-    const key = expenseKey(params.month, id);
-    const result = await kv.atomic().check({ key, versionstamp: null }).set(key, expense).commit();
-    if (result.ok) return json(expense, 201);
+    if (await kv.insertIfAbsent(expenseKey(params.month, id), expense)) {
+      return json(expense, 201);
+    }
   }
   return json({ error: "failed to create expense, please retry" }, 500);
 }
 
 export async function updateExpenseHandler(
   req: Request,
-  kv: Deno.Kv,
+  kv: Store,
   params: Record<string, string>,
 ): Promise<Response> {
   const key = expenseKey(params.month, params.id);
@@ -60,7 +64,7 @@ export async function updateExpenseHandler(
 
 export async function deleteExpenseHandler(
   _req: Request,
-  kv: Deno.Kv,
+  kv: Store,
   params: Record<string, string>,
 ): Promise<Response> {
   await kv.delete(expenseKey(params.month, params.id));

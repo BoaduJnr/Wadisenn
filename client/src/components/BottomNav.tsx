@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 
-export type ViewKey = "dashboard" | "add" | "expenses" | "settings";
+export type ViewKey = "dashboard" | "add" | "expenses" | "fixed" | "advisor" | "settings";
 
 const TABS: { key: ViewKey; label: string; icon: ReactNode }[] = [
   {
     key: "dashboard",
-    label: "Dashboard",
+    label: "Month",
     icon: (
       <path
         strokeLinecap="round"
@@ -21,7 +21,7 @@ const TABS: { key: ViewKey; label: string; icon: ReactNode }[] = [
   },
   {
     key: "expenses",
-    label: "Expenses",
+    label: "Spend",
     icon: (
       <path
         strokeLinecap="round"
@@ -31,8 +31,30 @@ const TABS: { key: ViewKey; label: string; icon: ReactNode }[] = [
     ),
   },
   {
+    key: "fixed",
+    label: "Fixed",
+    icon: (
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M17 2l4 4-4 4M21 6H9a4 4 0 0 0-4 4v1M7 22l-4-4 4-4M3 18h12a4 4 0 0 0 4-4v-1"
+      />
+    ),
+  },
+  {
+    key: "advisor",
+    label: "Advice",
+    icon: (
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"
+      />
+    ),
+  },
+  {
     key: "settings",
-    label: "Settings",
+    label: "Setup",
     icon: (
       <>
         <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round" />
@@ -52,7 +74,7 @@ export function BottomNav({ active, onChange }: { active: ViewKey; onChange: (ke
       className="fixed bottom-0 inset-x-0 z-20 border-t"
       style={{ background: "var(--surface-1)", borderColor: "var(--border)" }}
     >
-      <div className="max-w-md mx-auto grid grid-cols-4">
+      <div className="max-w-md mx-auto grid grid-cols-6">
         {TABS.map((tab) => {
           const isActive = tab.key === active;
           return (
@@ -60,14 +82,22 @@ export function BottomNav({ active, onChange }: { active: ViewKey; onChange: (ke
               key={tab.key}
               type="button"
               onClick={() => onChange(tab.key)}
-              className="flex flex-col items-center gap-1 py-2.5 min-h-16 transition-colors"
-              style={{ color: isActive ? "var(--series-1)" : "var(--muted)" }}
+              className="relative flex flex-col items-center gap-1 py-2.5 min-h-16 transition-colors"
+              style={{ color: isActive ? "var(--accent)" : "var(--muted)" }}
               aria-current={isActive}
             >
+              {/* A top marker rather than a filled pill, to match the squarer chrome */}
+              {isActive && (
+                <span
+                  className="absolute top-0 h-0.5 w-6 rounded-full"
+                  style={{ background: "var(--accent)" }}
+                  aria-hidden
+                />
+              )}
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
                 {tab.icon}
               </svg>
-              <span className="text-xs font-medium">{tab.label}</span>
+              <span className="text-[10px] font-medium">{tab.label}</span>
             </button>
           );
         })}

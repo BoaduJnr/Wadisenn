@@ -5,17 +5,18 @@ import { ExpenseForm, type ExpenseFormValues } from "../components/ExpenseForm";
 import { ExpenseListItem } from "../components/ExpenseListItem";
 import { MonthPicker } from "../components/MonthPicker";
 import { useExpenses } from "../hooks/useExpenses";
-import { dayLabel, formatCurrency } from "../lib/format";
+import { dayLabel } from "../lib/format";
+import type { Money } from "../lib/money";
 import type { Expense } from "../types";
 
 export function ExpenseListView({
   month,
-  currency,
+  money,
   onMonthChange,
   onChanged,
 }: {
   month: string;
-  currency: string;
+  money: Money;
   onMonthChange: (month: string) => void;
   onChanged: () => void;
 }) {
@@ -47,7 +48,7 @@ export function ExpenseListView({
   }
 
   return (
-    <div className="flex flex-col gap-2 px-4 pt-2 pb-24 max-w-md mx-auto">
+    <div className="flex flex-col gap-2 px-4 pt-2 pb-28 max-w-md mx-auto">
       <MonthPicker month={month} onChange={onMonthChange} />
 
       {loading && (
@@ -62,7 +63,7 @@ export function ExpenseListView({
       )}
       {!loading && !error && expenses.length === 0 && (
         <p className="text-sm text-center py-12" style={{ color: "var(--text-secondary)" }}>
-          No expenses logged this month yet.
+          Nothing logged this month yet. Fixed costs are handled on the Fixed tab.
         </p>
       )}
 
@@ -72,7 +73,7 @@ export function ExpenseListView({
         return (
           <div
             key={date}
-            className="rounded-2xl border px-3 py-1"
+            className="rounded-xl border px-3 py-1"
             style={{ background: "var(--surface-1)", borderColor: "var(--border)" }}
           >
             <div className="flex items-center justify-between py-2">
@@ -80,14 +81,14 @@ export function ExpenseListView({
                 {dayLabel(date)}
               </span>
               <span className="text-xs font-semibold tabular-nums" style={{ color: "var(--muted)" }}>
-                {formatCurrency(dayTotal, currency)}
+                {money.format(dayTotal)}
               </span>
             </div>
             {dayExpenses.map((expense) => (
               <ExpenseListItem
                 key={expense.id}
                 expense={expense}
-                currency={currency}
+                money={money}
                 onClick={() => setEditing(expense)}
               />
             ))}
@@ -97,7 +98,7 @@ export function ExpenseListView({
 
       {editing && (
         <BottomSheet onClose={() => setEditing(null)}>
-          <ExpenseForm initial={editing} onSave={handleSave} onDelete={handleDelete} />
+          <ExpenseForm base={money.base} initial={editing} onSave={handleSave} onDelete={handleDelete} />
         </BottomSheet>
       )}
     </div>

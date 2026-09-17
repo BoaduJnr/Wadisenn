@@ -11,12 +11,15 @@ export interface ExpenseFormValues {
 }
 
 export function ExpenseForm({
+  base,
   initial,
   submitLabel,
   onSave,
   onSaved,
   onDelete,
 }: {
+  /** Currency amounts are stored in — shown so entry is never ambiguous. */
+  base: string;
   initial?: Expense | null;
   submitLabel?: string;
   onSave: (values: ExpenseFormValues) => Promise<void>;
@@ -69,13 +72,13 @@ export function ExpenseForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-        {isEdit ? "Edit expense" : "Add expense"}
+      <h2 className="font-display text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+        {isEdit ? "Edit spend" : "Log a spend"}
       </h2>
 
       <label className="flex flex-col gap-1">
         <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-          Amount
+          Amount ({base})
         </span>
         <input
           type="number"
@@ -85,8 +88,8 @@ export function ExpenseForm({
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="0.00"
-          className="h-12 rounded-xl border px-3 text-lg font-semibold tabular-nums"
-          style={{ borderColor: "var(--border)", color: "var(--text-primary)", background: "transparent" }}
+          className="h-12 rounded-lg border px-3 font-display text-lg font-bold tabular-nums"
+          style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
         />
       </label>
 
@@ -97,8 +100,8 @@ export function ExpenseForm({
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="h-11 rounded-xl border px-3"
-          style={{ borderColor: "var(--border)", color: "var(--text-primary)", background: "transparent" }}
+          className="h-11 rounded-lg border px-3"
+          style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
         >
           {EXPENSE_CATEGORIES.map((c) => (
             <option key={c} value={c}>
@@ -116,8 +119,8 @@ export function ExpenseForm({
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="h-11 rounded-xl border px-3"
-          style={{ borderColor: "var(--border)", color: "var(--text-primary)", background: "transparent" }}
+          className="h-11 rounded-lg border px-3"
+          style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
         />
       </label>
 
@@ -130,8 +133,8 @@ export function ExpenseForm({
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="e.g. Groceries at the market"
-          className="h-11 rounded-xl border px-3"
-          style={{ borderColor: "var(--border)", color: "var(--text-primary)", background: "transparent" }}
+          className="h-11 rounded-lg border px-3"
+          style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
         />
       </label>
 
@@ -144,10 +147,10 @@ export function ExpenseForm({
       <button
         type="submit"
         disabled={saving}
-        className="h-12 rounded-xl font-semibold text-white disabled:opacity-60"
-        style={{ background: "var(--series-1)" }}
+        className="h-12 rounded-lg font-display font-semibold disabled:opacity-60"
+        style={{ background: "var(--accent)", color: "var(--on-brand)" }}
       >
-        {submitLabel ?? (isEdit ? "Save changes" : "Add expense")}
+        {submitLabel ?? (isEdit ? "Save changes" : "Log it")}
       </button>
 
       {isEdit && onDelete && (
@@ -155,10 +158,10 @@ export function ExpenseForm({
           type="button"
           onClick={handleDelete}
           disabled={saving}
-          className="h-11 rounded-xl font-medium disabled:opacity-60"
+          className="h-11 rounded-lg font-display font-medium disabled:opacity-60"
           style={{ color: "var(--status-critical)" }}
         >
-          Delete expense
+          Delete this spend
         </button>
       )}
     </form>

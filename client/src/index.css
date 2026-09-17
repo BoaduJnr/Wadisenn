@@ -2,14 +2,51 @@
 
 :root {
   color-scheme: light;
-  --surface-1: #fcfcfb;
-  --page-plane: #f9f9f7;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --muted: #898781;
-  --gridline: #e1e0d9;
-  --baseline: #c3c2b7;
-  --border: rgba(11, 11, 11, 0.1);
+
+  /* Brand */
+  --brand: #6544e0;
+  --brand-strong: #5334cc;
+  --brand-soft: #f0ecfd;
+  --on-brand: #ffffff;
+  --deep: #171233;
+  --deep-2: #2b2160;
+  --accent: var(--brand);
+
+  --font-display: Sora, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Planes */
+  --surface-1: #ffffff;
+  --surface-2: #f6f5fb;
+  --page-plane: #fbfafe;
+  --text-primary: #171233;
+  --text-secondary: #55507a;
+  --muted: #7d7799;
+  --gridline: #e8e6f1;
+  --baseline: #c7c3da;
+  --border: rgba(23, 18, 51, 0.12);
+
+  /* Chrome that sits on the deep plane in both themes */
+  --header-plane: rgba(23, 18, 51, 0.9);
+  --panel-shadow: rgba(23, 18, 51, 0.4);
+
+  /* Deep indigo panels used on the landing page in both themes */
+  --ink-plane: linear-gradient(152deg, #2b2160 0%, #171233 62%);
+  --ink-surface: rgba(255, 255, 255, 0.06);
+  --ink-border: rgba(255, 255, 255, 0.13);
+  --ink-text: #ffffff;
+  --ink-text-secondary: rgba(255, 255, 255, 0.74);
+  --ink-muted: rgba(255, 255, 255, 0.56);
+
+  /* Fixed commitments read as a third money series alongside spent and kept */
+  --tone-fixed: #64748b;
+
+  /* Form controls. The chevron is a data URI per theme because a url() cannot
+     read a custom property, and --picker-invert flips the browser-drawn
+     calendar glyph on dark planes. */
+  --field-plane: #ffffff;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236544e0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  --picker-invert: 0;
 
   --series-1: #2a78d6; /* Food */
   --series-2: #eb6834; /* Transport */
@@ -17,7 +54,7 @@
   --series-4: #eda100; /* Shopping */
   --series-5: #e87ba4; /* Health */
   --series-6: #008300; /* Entertainment */
-  --series-7: #4a3aa7; /* Other */
+  --series-7: #5a6675; /* Other */
 
   --status-good: #0ca30c;
   --status-warning: #fab219;
@@ -28,43 +65,61 @@
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
-    --surface-1: #1a1a19;
-    --page-plane: #0d0d0d;
+    --brand: #8f74ff;
+    --brand-strong: #7a5cf5;
+    --brand-soft: rgba(143, 116, 255, 0.16);
+    --surface-1: #241c4d;
+    --surface-2: #1b1540;
+    --page-plane: #171233;
     --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --muted: #898781;
-    --gridline: #2c2c2a;
-    --baseline: #383835;
-    --border: rgba(255, 255, 255, 0.1);
+    --text-secondary: rgba(255, 255, 255, 0.74);
+    --muted: rgba(255, 255, 255, 0.58);
+    --gridline: #2c2456;
+    --baseline: #4b4183;
+    --border: rgba(255, 255, 255, 0.14);
+    --panel-shadow: rgba(0, 0, 0, 0.5);
+    --tone-fixed: #94a3b8;
+    --field-plane: #1b1540;
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238f74ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    --picker-invert: 1;
 
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
     --series-4: #c98500;
     --series-5: #d55181;
-    --series-6: #008300;
-    --series-7: #9085e9;
+    --series-6: #17a217;
+    --series-7: #94a3b8;
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --surface-1: #1a1a19;
-  --page-plane: #0d0d0d;
+  --brand: #8f74ff;
+  --brand-strong: #7a5cf5;
+  --brand-soft: rgba(143, 116, 255, 0.16);
+  --surface-1: #241c4d;
+  --surface-2: #1b1540;
+  --page-plane: #171233;
   --text-primary: #ffffff;
-  --text-secondary: #c3c2b7;
-  --muted: #898781;
-  --gridline: #2c2c2a;
-  --baseline: #383835;
-  --border: rgba(255, 255, 255, 0.1);
+  --text-secondary: rgba(255, 255, 255, 0.74);
+  --muted: rgba(255, 255, 255, 0.58);
+  --gridline: #2c2456;
+  --baseline: #4b4183;
+  --border: rgba(255, 255, 255, 0.14);
+  --panel-shadow: rgba(0, 0, 0, 0.5);
+  --tone-fixed: #94a3b8;
+  --field-plane: #1b1540;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238f74ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  --picker-invert: 1;
 
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
   --series-4: #c98500;
   --series-5: #d55181;
-  --series-6: #008300;
-  --series-7: #9085e9;
+  --series-6: #17a217;
+  --series-7: #94a3b8;
 }
 
 html,
@@ -77,12 +132,117 @@ body,
 body {
   background: var(--page-plane);
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
 }
 
 input::placeholder {
   color: var(--muted);
   opacity: 1;
+}
+
+/* Native form controls.
+   These rules sit outside every cascade layer, so they beat Tailwind
+   utilities — which is what lets padding-right win over px-3 below. They are
+   here rather than on the components so the whole form surface changes with
+   the theme tokens, like the rest of the look. */
+select,
+textarea,
+input:not([type="checkbox"]):not([type="radio"]) {
+  background-color: var(--field-plane);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* A <select> keeps the platform's own arrow unless appearance is cleared, and
+   that arrow is drawn in a grey that has nothing to do with the theme. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 16px;
+  padding-right: 2.25rem;
+}
+
+/* The popup itself is drawn by the platform, but its rows take these. */
+select option {
+  background-color: var(--field-plane);
+  color: var(--text-primary);
+}
+
+/* The calendar glyph on date and month inputs is browser-drawn in a fixed
+   colour, so it has to be inverted rather than recoloured. */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+  filter: invert(var(--picker-invert));
+}
+
+select:focus-visible,
+textarea:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+/* A deep indigo band, as used across the landing page. Sets the ink-* tokens as
+   the local plane tokens so ordinary components sitting inside read correctly. */
+.ink {
+  background: var(--ink-plane);
+  color: var(--ink-text);
+  --surface-1: rgba(255, 255, 255, 0.06);
+  --surface-2: rgba(255, 255, 255, 0.04);
+  --text-primary: var(--ink-text);
+  --text-secondary: var(--ink-text-secondary);
+  --muted: var(--ink-muted);
+  --border: var(--ink-border);
+  --gridline: rgba(255, 255, 255, 0.1);
+  --baseline: rgba(255, 255, 255, 0.28);
+}
+
+/* Statement rows: a hairline that reads as a subtotal rather than a card edge. */
+.subtotal-rule {
+  border-top: 1px solid var(--border);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    animation: reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes advisorPulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

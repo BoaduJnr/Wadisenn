@@ -1,4 +1,15 @@
-import type { AddOn, Expense, MonthRecord, MonthSummary, Settings } from "./types";
+import type {
+  AddOn,
+  AdvisorMessage,
+  AdvisorThread,
+  Commitment,
+  Expense,
+  MonthRecord,
+  MonthSummary,
+  RatesResponse,
+  Settings,
+  YearCommitments,
+} from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -17,6 +28,28 @@ export const getSettings = () => request<Settings>("/settings");
 export const saveSettings = (settings: Settings) =>
   request<Settings>("/settings", { method: "PUT", body: JSON.stringify(settings) });
 
+export interface AdvisorThreadResponse extends AdvisorThread {
+  starters: string[];
+  model: string;
+}
+
+export const getAdvisorThread = () => request<AdvisorThreadResponse>("/advisor");
+
+/** The exact snapshot sent to the model, so the UI can show it. */
+export const getAdvisorContext = () => request<{ snapshot: string }>("/advisor/context");
+
+export const sendAdvisorMessage = (text: string) =>
+  request<{ question: AdvisorMessage; reply: AdvisorMessage }>("/advisor/messages", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+
+export const clearAdvisorThread = () => request<{ ok: true }>("/advisor", { method: "DELETE" });
+
+export const getRates = () => request<RatesResponse>("/rates");
+
+export const refreshRates = () => request<RatesResponse>("/rates/refresh", { method: "POST" });
+
 export const getMonthRecord = (month: string) => request<MonthRecord>(`/months/${month}`);
 
 export const saveMonthRecord = (month: string, record: { salaryOverride?: number | null; addOns: AddOn[] }) =>
@@ -27,6 +60,21 @@ export const addAddOn = (month: string, addOn: { label: string; amount: number }
 
 export const deleteAddOn = (month: string, id: string) =>
   request<{ ok: true }>(`/months/${month}/addons/${id}`, { method: "DELETE" });
+
+export const listCommitments = () => request<Commitment[]>("/commitments");
+
+export type CommitmentInput = Omit<Commitment, "id" | "createdAt">;
+
+export const createCommitment = (commitment: CommitmentInput) =>
+  request<Commitment>("/commitments", { method: "POST", body: JSON.stringify(commitment) });
+
+export const updateCommitment = (id: string, commitment: Partial<CommitmentInput>) =>
+  request<Commitment>(`/commitments/${id}`, { method: "PUT", body: JSON.stringify(commitment) });
+
+export const deleteCommitment = (id: string) =>
+  request<{ ok: true }>(`/commitments/${id}`, { method: "DELETE" });
+
+export const getYearCommitments = (year: number) => request<YearCommitments>(`/commitments/year/${year}`);
 
 export const getMonthSummary = (month: string) => request<MonthSummary>(`/months/${month}/summary`);
 

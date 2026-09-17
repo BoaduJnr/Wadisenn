@@ -1,14 +1,14 @@
 import { categoryColor } from "../lib/categories";
-import { formatCurrency } from "../lib/format";
+import type { Money } from "../lib/money";
 import type { Expense } from "../types";
 
 export function ExpenseListItem({
   expense,
-  currency,
+  money,
   onClick,
 }: {
   expense: Expense;
-  currency: string;
+  money: Money;
   onClick: () => void;
 }) {
   return (
@@ -33,8 +33,8 @@ export function ExpenseListItem({
           </div>
         )}
       </div>
-      <span className="text-sm font-semibold tabular-nums" style={{ color: "var(--text-primary)" }}>
-        {formatCurrency(expense.amount, currency)}
+      <span className="font-display text-sm font-bold tabular-nums" style={{ color: "var(--text-primary)" }}>
+        {money.format(expense.amount)}
       </span>
     </button>
   );

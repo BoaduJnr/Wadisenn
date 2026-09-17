@@ -1,24 +1,17 @@
 import { Area, AreaChart, CartesianGrid, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { formatCurrency } from "../lib/format";
+import type { Money } from "../lib/money";
 import type { MonthSummary } from "../types";
-
-function compactCurrency(amount: number, currency: string): string {
-  if (Math.abs(amount) >= 1000) {
-    return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(amount);
-  }
-  return formatCurrency(amount, currency);
-}
 
 function CustomTooltip({
   active,
   payload,
   label,
-  currency,
+  money,
 }: {
   active?: boolean;
   payload?: { value: number }[];
   label?: number;
-  currency: string;
+  money: Money;
 }) {
   if (!active || !payload?.length) return null;
   return (
@@ -29,34 +22,36 @@ function CustomTooltip({
       <div className="font-medium mb-0.5" style={{ color: "var(--text-secondary)" }}>
         Day {label}
       </div>
-      <div className="font-semibold tabular-nums">{formatCurrency(payload[0].value, currency)} spent</div>
+      <div className="font-semibold tabular-nums">{money.format(payload[0].value)} spent</div>
     </div>
   );
 }
 
-export function CumulativeChart({ summary, currency }: { summary: MonthSummary; currency: string }) {
-  const { dailyCumulative, income, daysInMonth, today, isCurrentMonth } = summary;
+export function CumulativeChart({ summary, money }: { summary: MonthSummary; money: Money }) {
+  const { dailyCumulative, budget, daysInMonth, today, isCurrentMonth } = summary;
 
+  // Pace and the ceiling line both track the spendable budget — income less the
+  // fixed commitments — since that is the money this chart is about.
   const data = dailyCumulative.map((point) => ({
     day: point.day,
     spent: !isCurrentMonth || today === null || point.day <= today ? point.cumulativeSpent : null,
-    budgetPace: income.total > 0 ? (income.total / daysInMonth) * point.day : 0,
+    budgetPace: budget > 0 ? (budget / daysInMonth) * point.day : 0,
   }));
 
   const tickInterval = Math.max(0, Math.ceil(daysInMonth / 6) - 1);
 
   return (
     <div
-      className="rounded-2xl border p-4"
+      className="rounded-xl border p-4"
       style={{ background: "var(--surface-1)", borderColor: "var(--border)" }}
     >
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          Cumulative spending
+          Spending against budget
         </h3>
         <div className="flex items-center gap-3 text-xs">
           <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-            <span className="inline-block h-0.5 w-3 rounded-full" style={{ background: "var(--series-1)" }} />
+            <span className="inline-block h-0.5 w-3 rounded-full" style={{ background: "var(--accent)" }} />
             Spent
           </span>
           <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
@@ -64,7 +59,7 @@ export function CumulativeChart({ summary, currency }: { summary: MonthSummary; 
               className="inline-block h-0.5 w-3 rounded-full"
               style={{ background: "var(--baseline)", opacity: 0.9 }}
             />
-            Budget pace
+            Even pace
           </span>
         </div>
       </div>
@@ -72,8 +67,8 @@ export function CumulativeChart({ summary, currency }: { summary: MonthSummary; 
         <AreaChart data={data} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
           <defs>
             <linearGradient id="spentFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--series-1)" stopOpacity={0.22} />
-              <stop offset="100%" stopColor="var(--series-1)" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.22} />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid vertical={false} stroke="var(--gridline)" />
@@ -89,16 +84,16 @@ export function CumulativeChart({ summary, currency }: { summary: MonthSummary; 
             axisLine={false}
             tickLine={false}
             width={40}
-            tickFormatter={(v) => compactCurrency(v, currency)}
+            tickFormatter={(v) => money.compact(v)}
           />
-          <Tooltip content={<CustomTooltip currency={currency} />} />
-          {income.total > 0 && (
+          <Tooltip content={<CustomTooltip money={money} />} />
+          {budget > 0 && (
             <ReferenceLine
-              y={income.total}
+              y={budget}
               stroke="var(--muted)"
               strokeDasharray="4 4"
               strokeWidth={1.5}
-              label={{ value: "Income", position: "insideTopRight", fontSize: 11, fill: "var(--muted)" }}
+              label={{ value: "Spendable", position: "insideTopRight", fontSize: 11, fill: "var(--muted)" }}
             />
           )}
           <Line
@@ -113,7 +108,7 @@ export function CumulativeChart({ summary, currency }: { summary: MonthSummary; 
           <Area
             type="monotone"
             dataKey="spent"
-            stroke="var(--series-1)"
+            stroke="var(--accent)"
             strokeWidth={2}
             fill="url(#spentFill)"
             dot={false}

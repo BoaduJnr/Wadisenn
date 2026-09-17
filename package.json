@@ -1,0 +1,26 @@
+{
+  "name": "wadisenn",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build:client": "npm --prefix client ci && npm --prefix client run build",
+    "build": "npm run build:client",
+    "start": "node server/main.ts",
+    "dev:server": "node --watch server/main.ts",
+    "dev:client": "npm --prefix client run dev",
+    "dev": "concurrently -n server,client -c blue,magenta \"npm run dev:server\" \"npm run dev:client\""
+  },
+  "dependencies": {
+    "mongodb": "^6.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "concurrently": "^9.2.1",
+    "typescript": "~6.0.2"
+  }
+}
