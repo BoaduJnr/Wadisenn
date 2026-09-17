@@ -78,11 +78,11 @@ function Tracker() {
 export default function App() {
   const route = useRoute();
 
-  // The landing page is its own document-length scroll; jumping between it and
+  // The about page is its own document-length scroll; jumping between it and
   // the tracker should start at the top rather than keep the old offset.
   useEffect(() => {
     globalThis.scrollTo({ top: 0 });
   }, [route]);
 
-  return route === "app" ? <Tracker /> : <LandingView />;
+  return route === "about" ? <LandingView /> : <Tracker />;
 }

@@ -21,7 +21,7 @@ export function AppHeader() {
         </span>
         <button
           type="button"
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/about")}
           className="rounded-lg border px-3 py-1.5 text-xs font-semibold"
           style={{ borderColor: "rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.82)" }}
         >

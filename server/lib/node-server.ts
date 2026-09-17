@@ -82,6 +82,23 @@ export function serve(
     }
   });
 
+  // Without this, a failed bind surfaces as an unhandled 'error' event and a
+  // raw stack trace. The common case by far is a server already running.
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(
+        `\nPort ${port} is already in use, so the server did not start.\n\n` +
+          `Something else is listening on it — most likely another copy of this\n` +
+          `server. Stop that one, or set PORT to a free port.\n`,
+      );
+    } else if (err.code === "EACCES") {
+      console.error(`\nNot permitted to bind port ${port}. Try a port above 1024.\n`);
+    } else {
+      console.error(`\nCould not start the server: ${err.message}\n`);
+    }
+    process.exit(1);
+  });
+
   server.listen(port, hostname, () => {
     console.log(`Wadisenn server listening on http://${hostname}:${port}`);
   });

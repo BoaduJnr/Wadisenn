@@ -87,17 +87,28 @@ client/
 
 ## Routes
 
-There are two, switched on `location.pathname` in `client/src/lib/navigation.ts`
-rather than with a router dependency:
+Three entry points, switched on `location.pathname` in
+`client/src/lib/navigation.ts` rather than with a router dependency:
 
 | Path | What it renders |
 |---|---|
-| `/` | `LandingView` — the marketing page |
-| `/app` | the tracker itself (month, add, spending, fixed costs, advice, setup) |
+| `/app` | always the tracker — this is the manifest's `start_url` |
+| `/about` | always the marketing page — the header's About button |
+| `/` | the marketing page in a browser, the tracker in the installed app |
 
-`server/lib/static.ts` falls back to `index.html` for any non-`/api/` path
-that isn't a file on disk, so `/app` survives a hard refresh without extra
-server config.
+So the web view keeps its landing page, and the installed app never shows it.
+The manifest does the real work by launching at `/app`; the display-mode check
+on `/` is a backstop for a standalone window that ends up at the root anyway
+— a shared link, an older install, or a platform that ignores `start_url`.
+`isInstalledApp()` reads the `display-mode` media query, falling back to
+`navigator.standalone` for older iOS Safari.
+
+Matching is by whole path segment, so `/about/faq` is the about page while
+`/aboutus` is not. `/about` stays reachable in the installed app too, or the
+About button would have nowhere to go.
+
+`server/lib/static.ts` falls back to `index.html` for any non-`/api/` path that
+isn't a file on disk, so all of these survive a hard refresh.
 
 ## Money advisor
 
@@ -210,6 +221,29 @@ Icons are a violet rounded tile with a white W, matching the wordmark in
 `AppHeader`. There are three: 192 and 512 for Android, a 512 `maskable` one
 whose glyph sits inside the middle 80% so a circular or squircle mask cannot
 clip it, and a 180 PNG for iOS.
+
+### Updates
+
+There is no service worker, deliberately, and that is what makes updates
+simple: an installed Wadisenn is a browser window pointed at the URL, so it
+picks up a new deploy on its next launch with no prompt and no store review.
+
+Two header rules in `server/lib/static.ts` make that work:
+
+| Path | Cache-Control | Why |
+|---|---|---|
+| `/assets/*` | `public, max-age=31536000, immutable` | Vite content-hashes these filenames, so a changed file is a *different* URL and can never be served stale |
+| everything else, incl. `index.html` | `no-cache` | revalidated on every launch, so the shell always learns the current bundle names |
+| `/api/*` | `no-store` (in `server/lib/http.ts`) | live financial figures; a stale read would be a wrong answer, not just an old one |
+
+Only files whose contents changed get new hashes, so a deploy that touches one
+stylesheet re-downloads that stylesheet and nothing else.
+
+The trade-off is that without a service worker there is **no offline support**:
+with no network the app will not load at all. Adding one would buy offline use
+but would also introduce the usual update problem — a cached shell serving an
+old version until something tells it to update — which would then need an
+explicit update prompt or `skipWaiting`.
 
 ### Device insets
 
