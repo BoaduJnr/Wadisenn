@@ -48,6 +48,11 @@ export class MongoStore implements Store {
       serverApi: { version: ServerApiVersion.v1 },
       serverSelectionTimeoutMS: 15_000,
       retryWrites: true,
+      // Without this the driver writes `undefined` as `null`, so an optional
+      // field that was simply absent comes back as an explicit null. Every
+      // type here declares those fields as `?:`, so they must round-trip as
+      // absent or the stored shape stops matching the declared one.
+      ignoreUndefined: true,
     });
     await client.connect();
 

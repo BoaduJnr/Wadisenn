@@ -208,15 +208,41 @@ await call("PUT", "/api/months/2026-03", { salaryOverride: null, addOns: [] });
 check("override cleared",
   (await call("GET", "/api/months/2026-03/summary")).body.income.base === 5000);
 
-console.log("\n== advisor (no GEMINI_API_KEY in this run) ==");
+console.log("\n== advisor ==");
 const thread = await call("GET", "/api/advisor");
 check("thread readable", thread.status === 200);
-check("reports disabled", thread.body.enabled === false, thread.body.enabled);
 check("starters present", Array.isArray(thread.body.starters) && thread.body.starters.length > 0);
-const asked = await call("POST", "/api/advisor/messages", { text: "Can I afford a laptop?" });
-check("501 without a key", asked.status === 501, asked);
 check("empty question rejected",
   (await call("POST", "/api/advisor/messages", { text: "  " })).status === 400);
+check("overlong question rejected",
+  (await call("POST", "/api/advisor/messages", { text: "x".repeat(2100) })).status === 400);
+
+// A .env in the project root supplies a key even when the variable is unset,
+// so assert whichever branch is actually in effect rather than assuming one.
+if (thread.body.enabled) {
+  console.log("  (a GEMINI_API_KEY is configured, so checking the live path)");
+  const asked = await call("POST", "/api/advisor/messages", {
+    text: "In one short sentence: am I on track this month?",
+  });
+  check(
+    "a configured advisor either answers or fails gracefully",
+    asked.status === 200
+      ? typeof asked.body.reply?.text === "string" && asked.body.reply.text.length > 0
+      : typeof asked.body.error === "string",
+    { status: asked.status, body: asked.body },
+  );
+  if (asked.status === 200) {
+    check("the exchange was persisted",
+      (await call("GET", "/api/advisor")).body.messages.length >= 2);
+  }
+  await call("DELETE", "/api/advisor");
+  check("thread cleared", (await call("GET", "/api/advisor")).body.messages.length === 0);
+} else {
+  console.log("  (no GEMINI_API_KEY, so checking the switched-off path)");
+  check("501 without a key",
+    (await call("POST", "/api/advisor/messages", { text: "Can I afford a laptop?" })).status === 501);
+  check("nothing persisted", (await call("GET", "/api/advisor")).body.messages.length === 0);
+}
 const ctx = await call("GET", "/api/advisor/context");
 check("snapshot builds", ctx.status === 200 && ctx.body.snapshot.includes("CURRENCY"));
 check("snapshot carries real figures", ctx.body.snapshot.includes("5000"), ctx.body.snapshot.slice(0, 120));
