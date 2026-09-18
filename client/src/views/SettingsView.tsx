@@ -45,6 +45,13 @@ export function SettingsView({
   const [salaryMessage, setSalaryMessage] = useState<string | null>(null);
 
   const [overrideInput, setOverrideInput] = useState<string | null>(null);
+  const [defaultTargetInput, setDefaultTargetInput] = useState<string | null>(null);
+  const [savingDefaultTarget, setSavingDefaultTarget] = useState(false);
+  const [defaultTargetMessage, setDefaultTargetMessage] = useState<string | null>(null);
+
+  const [targetInput, setTargetInput] = useState<string | null>(null);
+  const [savingTarget, setSavingTarget] = useState(false);
+  const [targetMessage, setTargetMessage] = useState<string | null>(null);
   const [savingOverride, setSavingOverride] = useState(false);
 
   const [addOnLabel, setAddOnLabel] = useState("");
@@ -64,6 +71,12 @@ export function SettingsView({
   const effectiveCurrencyInput = currencyInput ?? base;
   const effectiveOverrideInput =
     overrideInput ?? (record?.salaryOverride !== undefined ? String(record.salaryOverride) : "");
+  const effectiveTargetInput =
+    targetInput ?? (record?.targetBudget !== undefined ? String(record.targetBudget) : "");
+  const effectiveDefaultTargetInput =
+    defaultTargetInput ?? (settings?.defaultTargetBudget !== undefined
+      ? String(settings.defaultTargetBudget)
+      : "");
 
   const market = settings?.marketContext;
   const numberOrBlank = (value?: number) => (value === undefined ? "" : String(value));
@@ -78,11 +91,10 @@ export function SettingsView({
     e.preventDefault();
     setSavingSalary(true);
     try {
+      // Only this form's fields are sent; the server keeps everything else.
       await saveSettings({
         defaultMonthlySalary: Number(effectiveSalaryInput) || 0,
         currency: effectiveCurrencyInput || "GHS",
-        displayCurrency: settings?.displayCurrency,
-        marketContext: settings?.marketContext,
       });
       setSalaryInput(null);
       setCurrencyInput(null);
@@ -98,12 +110,8 @@ export function SettingsView({
   async function handleDisplayCurrency(code: string) {
     setSavingDisplay(true);
     try {
-      await saveSettings({
-        defaultMonthlySalary: settings?.defaultMonthlySalary ?? 0,
-        currency: base,
-        displayCurrency: code === base ? undefined : code,
-        marketContext: settings?.marketContext,
-      });
+      // null clears the display currency; undefined would mean leave it alone.
+      await saveSettings({ displayCurrency: code === base ? null : code });
       onSettingsChanged();
     } finally {
       setSavingDisplay(false);
@@ -121,9 +129,6 @@ export function SettingsView({
     setSavingMarket(true);
     try {
       await saveSettings({
-        defaultMonthlySalary: settings?.defaultMonthlySalary ?? 0,
-        currency: base,
-        displayCurrency: settings?.displayCurrency,
         marketContext: {
           tbillRate: parse(effectiveTbill),
           inflation: parse(effectiveInflation),
@@ -141,15 +146,49 @@ export function SettingsView({
     }
   }
 
+  /** Blank clears the default, leaving only per-month targets. */
+  async function handleSaveDefaultTarget(e: FormEvent) {
+    e.preventDefault();
+    setSavingDefaultTarget(true);
+    try {
+      const value = effectiveDefaultTargetInput.trim();
+      await saveSettings({ defaultTargetBudget: value === "" ? null : Number(value) });
+      setDefaultTargetInput(null);
+      onSettingsChanged();
+      setDefaultTargetMessage("Saved");
+      setTimeout(() => setDefaultTargetMessage(null), 1500);
+    } finally {
+      setSavingDefaultTarget(false);
+    }
+  }
+
+  /**
+   * Blank clears the target, which falls the pace indicator back to measuring
+   * against the whole spendable budget. Only this field is sent, so saving it
+   * cannot disturb the salary override or the add-ons.
+   */
+  async function handleSaveTarget(e: FormEvent) {
+    e.preventDefault();
+    setSavingTarget(true);
+    try {
+      const value = effectiveTargetInput.trim();
+      await saveMonthRecord(month, { targetBudget: value === "" ? null : Number(value) });
+      setTargetInput(null);
+      refetch();
+      onSettingsChanged();
+      setTargetMessage("Saved");
+      setTimeout(() => setTargetMessage(null), 1500);
+    } finally {
+      setSavingTarget(false);
+    }
+  }
+
   async function handleSaveOverride(e: FormEvent) {
     e.preventDefault();
     setSavingOverride(true);
     try {
       const value = effectiveOverrideInput.trim();
-      await saveMonthRecord(month, {
-        salaryOverride: value === "" ? null : Number(value),
-        addOns: record?.addOns ?? [],
-      });
+      await saveMonthRecord(month, { salaryOverride: value === "" ? null : Number(value) });
       setOverrideInput(null);
       refetch();
     } finally {
@@ -228,6 +267,41 @@ export function SettingsView({
           style={{ background: "var(--accent)", color: "var(--on-brand)" }}
         >
           {salaryMessage ?? "Save"}
+        </button>
+      </form>
+
+      <form
+        onSubmit={handleSaveDefaultTarget}
+        className="rounded-xl border p-4 flex flex-col gap-3"
+        style={{ background: "var(--surface-1)", borderColor: "var(--border)" }}
+      >
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          Default spending target
+        </h2>
+        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          A ceiling on what you log each month, in {base}. Usually lower than what is spendable, so there
+          is something left to keep. Any month can override it below. Blank measures your pace against the
+          whole spendable budget instead.
+        </p>
+        <input
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0"
+          placeholder="No default target"
+          value={effectiveDefaultTargetInput}
+          onChange={(e) => setDefaultTargetInput(e.target.value)}
+          onFocus={selectIfZero}
+          className="h-11 rounded-lg border px-3 font-semibold tabular-nums"
+          style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
+        />
+        <button
+          type="submit"
+          disabled={savingDefaultTarget}
+          className="h-11 rounded-lg font-display font-semibold disabled:opacity-60"
+          style={{ background: "var(--accent)", color: "var(--on-brand)" }}
+        >
+          {defaultTargetMessage ?? "Save default target"}
         </button>
       </form>
 
@@ -360,6 +434,44 @@ export function SettingsView({
           style={{ background: "var(--accent)", color: "var(--on-brand)" }}
         >
           {marketMessage ?? "Save rates"}
+        </button>
+      </form>
+
+      <form
+        onSubmit={handleSaveTarget}
+        className="rounded-xl border p-4 flex flex-col gap-3"
+        style={{ background: "var(--surface-1)", borderColor: "var(--border)" }}
+      >
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          Spending target for {monthLabel(month)}
+        </h2>
+        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          Overrides the default above, for this month only, in {base}. Blank uses{" "}
+          {settings?.defaultTargetBudget !== undefined
+            ? `the default of ${money.format(settings.defaultTargetBudget)}`
+            : "your whole spendable budget"}.
+        </p>
+        <input
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0"
+          placeholder={settings?.defaultTargetBudget !== undefined
+            ? String(settings.defaultTargetBudget)
+            : "No target set"}
+          value={effectiveTargetInput}
+          onChange={(e) => setTargetInput(e.target.value)}
+          onFocus={selectIfZero}
+          className="h-11 rounded-lg border px-3 font-semibold tabular-nums"
+          style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
+        />
+        <button
+          type="submit"
+          disabled={savingTarget || loading}
+          className="h-11 rounded-lg font-display font-semibold disabled:opacity-60"
+          style={{ background: "var(--accent)", color: "var(--on-brand)" }}
+        >
+          {targetMessage ?? "Save target"}
         </button>
       </form>
 

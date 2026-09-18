@@ -69,7 +69,9 @@ s = await call("PUT", "/api/settings", {
   defaultMonthlySalary: 5200, currency: "GHS", marketContext: s.body.marketContext,
 });
 check("unrelated save keeps rates and date", s.body.marketContext?.updatedAt === stamped, s.body.marketContext);
-check("display cleared when omitted", s.body.displayCurrency === undefined, s.body);
+// Settings saves merge, so omitting a field keeps it. Clearing takes a null,
+// which is asserted in the merge section below.
+check("display currency survives an unrelated save", s.body.displayCurrency === "USD", s.body);
 
 console.log("\n== commitments ==");
 await call("PUT", "/api/settings", { defaultMonthlySalary: 5000, currency: "GHS" });
@@ -208,6 +210,127 @@ await call("PUT", "/api/months/2026-03", { salaryOverride: null, addOns: [] });
 check("override cleared",
   (await call("GET", "/api/months/2026-03/summary")).body.income.base === 5000);
 
+console.log("\n== settings saves merge, so separate forms cannot clobber ==");
+await call("PUT", "/api/settings", {
+  defaultMonthlySalary: 6000,
+  currency: "GHS",
+  displayCurrency: "USD",
+  marketContext: { tbillRate: 26.5 },
+  defaultTargetBudget: 4000,
+});
+let st = (await call("GET", "/api/settings")).body;
+check("everything stored", st.defaultTargetBudget === 4000 && st.displayCurrency === "USD", st);
+
+await call("PUT", "/api/settings", { defaultMonthlySalary: 6500 });
+st = (await call("GET", "/api/settings")).body;
+check("salary-only save keeps the default target", st.defaultTargetBudget === 4000, st);
+check("  keeps the display currency", st.displayCurrency === "USD", st);
+check("  keeps the market rates", st.marketContext?.tbillRate === 26.5, st);
+check("  and applies the salary", st.defaultMonthlySalary === 6500);
+
+await call("PUT", "/api/settings", { defaultTargetBudget: 3500 });
+st = (await call("GET", "/api/settings")).body;
+check("target-only save keeps the salary", st.defaultMonthlySalary === 6500, st);
+check("  keeps the display currency", st.displayCurrency === "USD", st);
+check("  and applies the target", st.defaultTargetBudget === 3500);
+
+console.log("\n== explicit null clears, undefined keeps ==");
+await call("PUT", "/api/settings", { displayCurrency: null });
+st = (await call("GET", "/api/settings")).body;
+check("null cleared the display currency", st.displayCurrency === undefined, st);
+check("  without touching the target", st.defaultTargetBudget === 3500, st);
+await call("PUT", "/api/settings", { defaultTargetBudget: null });
+st = (await call("GET", "/api/settings")).body;
+check("null cleared the default target", st.defaultTargetBudget === undefined, st);
+check("  without touching the salary", st.defaultMonthlySalary === 6500, st);
+for (const bad of [0, -100, "x"]) {
+  await call("PUT", "/api/settings", { defaultTargetBudget: bad });
+  const got = (await call("GET", "/api/settings")).body.defaultTargetBudget;
+  check(`junk default target ${JSON.stringify(bad)} ignored`, got === undefined, got);
+}
+check("a bad salary is still rejected outright",
+  (await call("PUT", "/api/settings", { defaultMonthlySalary: "x" })).status === 400);
+
+console.log("\n== target resolves month -> default -> spendable budget ==");
+const m = new Date().toISOString().slice(0, 7);
+await call("PUT", `/api/months/${m}`, { targetBudget: null });
+await call("PUT", "/api/settings", { defaultTargetBudget: null });
+let sp = (await call("GET", `/api/months/${m}/summary`)).body.pace;
+check("no targets at all: falls back to the budget", sp.source === "budget" && sp.custom === false, sp);
+
+await call("PUT", "/api/settings", { defaultTargetBudget: 4000 });
+sp = (await call("GET", `/api/months/${m}/summary`)).body.pace;
+check("default applies when the month has none", sp.source === "default" && sp.target === 4000, sp);
+check("  and counts as a set target", sp.custom === true);
+
+await call("PUT", `/api/months/${m}`, { targetBudget: 1800 });
+sp = (await call("GET", `/api/months/${m}/summary`)).body.pace;
+check("month override beats the default", sp.source === "month" && sp.target === 1800, sp);
+
+await call("PUT", `/api/months/${m}`, { targetBudget: null });
+sp = (await call("GET", `/api/months/${m}/summary`)).body.pace;
+check("clearing the month falls back to the default", sp.source === "default" && sp.target === 4000, sp);
+
+console.log("\n== a different month also picks up the default ==");
+sp = (await call("GET", "/api/months/2026-02/summary")).body.pace;
+check("default applies to every month", sp.source === "default" && sp.target === 4000, sp);
+await call("PUT", "/api/settings", { defaultTargetBudget: null });
+
+console.log("\n== target budget: set, persist, and pace ==");
+const thisMonth = new Date().toISOString().slice(0, 7);
+await call("PUT", "/api/settings", { defaultMonthlySalary: 6000, currency: "GHS" });
+
+let sum2 = (await call("GET", `/api/months/${thisMonth}/summary`)).body;
+check(
+  "no target set falls back to the spendable budget",
+  sum2.pace.custom === false && sum2.pace.target === sum2.budget,
+  sum2.pace,
+);
+check("pace block present for the current month", sum2.pace.elapsed !== null, sum2.pace);
+
+let rec = await call("PUT", `/api/months/${thisMonth}`, { targetBudget: 2000 });
+check("target saved", rec.body.targetBudget === 2000, rec.body);
+sum2 = (await call("GET", `/api/months/${thisMonth}/summary`)).body;
+check("summary uses the custom target", sum2.pace.target === 2000 && sum2.pace.custom === true, sum2.pace);
+check(
+  "onPace is target x elapsed",
+  Math.abs(sum2.pace.onPace - 2000 * sum2.pace.elapsed) < 0.02,
+  sum2.pace,
+);
+check(
+  "daysGone + daysLeft equals the month",
+  sum2.pace.daysGone + sum2.pace.daysLeft === sum2.pace.daysInMonth,
+  sum2.pace,
+);
+
+console.log("\n== the separate little forms must not clobber each other ==");
+await call("PUT", `/api/months/${thisMonth}`, { salaryOverride: 9000 });
+rec = await call("GET", `/api/months/${thisMonth}`);
+check("saving an override keeps the target", rec.body.targetBudget === 2000, rec.body);
+check("override applied", rec.body.salaryOverride === 9000, rec.body);
+
+await call("POST", `/api/months/${thisMonth}/addons`, { label: "Bonus", amount: 500 });
+await call("PUT", `/api/months/${thisMonth}`, { targetBudget: 2500 });
+rec = await call("GET", `/api/months/${thisMonth}`);
+check("saving a target keeps the override", rec.body.salaryOverride === 9000, rec.body);
+check("saving a target keeps the add-ons", rec.body.addOns?.length === 1, rec.body.addOns);
+check("target updated", rec.body.targetBudget === 2500, rec.body);
+
+console.log("\n== clearing the target ==");
+await call("PUT", `/api/months/${thisMonth}`, { targetBudget: null });
+rec = await call("GET", `/api/months/${thisMonth}`);
+check("null clears the target", rec.body.targetBudget === undefined, rec.body);
+check("clearing kept the override", rec.body.salaryOverride === 9000, rec.body);
+sum2 = (await call("GET", `/api/months/${thisMonth}/summary`)).body;
+check("pace falls back to the budget again", sum2.pace.custom === false, sum2.pace);
+
+console.log("\n== junk targets are refused, not stored ==");
+for (const bad of [0, -5, "x", null === null ? Number.NaN : 0]) {
+  await call("PUT", `/api/months/${thisMonth}`, { targetBudget: bad });
+  const got = (await call("GET", `/api/months/${thisMonth}`)).body.targetBudget;
+  check(`${JSON.stringify(bad) ?? "NaN"} ignored`, got === undefined, got);
+}
+
 console.log("\n== advisor ==");
 const thread = await call("GET", "/api/advisor");
 check("thread readable", thread.status === 200);
@@ -245,7 +368,17 @@ if (thread.body.enabled) {
 }
 const ctx = await call("GET", "/api/advisor/context");
 check("snapshot builds", ctx.status === 200 && ctx.body.snapshot.includes("CURRENCY"));
-check("snapshot carries real figures", ctx.body.snapshot.includes("5000"), ctx.body.snapshot.slice(0, 120));
+// Assert against the live figure rather than a literal, so earlier sections
+// changing the salary cannot silently break this.
+const liveIncome = String(
+  (await call("GET", `/api/months/${new Date().toISOString().slice(0, 7)}/summary`)).body.income.total,
+);
+check(
+  `snapshot carries real figures (income ${liveIncome})`,
+  ctx.body.snapshot.includes(liveIncome),
+  ctx.body.snapshot.slice(0, 200),
+);
+check("snapshot states the spending target", /spending target/i.test(ctx.body.snapshot));
 check("snapshot lists commitments", ctx.body.snapshot.includes("Internet"));
 
 console.log("\n== 404 for unknown routes ==");

@@ -4,7 +4,7 @@ import { KeptAccumulationChart } from "../components/KeptAccumulationChart";
 import { MonthFlow } from "../components/MonthFlow";
 import { MonthHistoryChart } from "../components/MonthHistoryChart";
 import { MonthPicker } from "../components/MonthPicker";
-import { ProgressBar } from "../components/ProgressBar";
+import { PaceBar } from "../components/PaceBar";
 import { useMonthHistory } from "../hooks/useMonthHistory";
 import { useSummary } from "../hooks/useSummary";
 import type { Money } from "../lib/money";
@@ -79,7 +79,7 @@ export function DashboardView({
 
           <MonthFlow summary={summary} money={money} />
 
-          <ProgressBar spent={summary.totalSpent} budget={summary.budget} />
+          <PaceBar pace={summary.pace} money={money} />
 
           {summary.isCurrentMonth && summary.projectedRemaining !== null && (
             <div

@@ -1,5 +1,6 @@
 import type { AddOn, Commitment, Expense, MonthSummary, Settings } from "../../shared/types.ts";
 import { commitmentsForMonth, round2 } from "../../shared/commitments.ts";
+import { computeBudgetPace } from "../../shared/pace.ts";
 import { commitmentsPrefix, expensesPrefix, monthKey, settingsKey } from "./keys.ts";
 import type { Store } from "./store.ts";
 
@@ -46,7 +47,9 @@ export async function listCommitments(kv: Store): Promise<Commitment[]> {
 export async function computeMonthSummary(kv: Store, month: string): Promise<MonthSummary> {
   const [settings, monthRecordEntry, expenses, allCommitments] = await Promise.all([
     getSettings(kv),
-    kv.get<{ month: string; salaryOverride?: number; addOns: AddOn[] }>(monthKey(month)),
+    kv.get<{ month: string; salaryOverride?: number; addOns: AddOn[]; targetBudget?: number }>(
+      monthKey(month),
+    ),
     listExpenses(kv, month),
     listCommitments(kv),
   ]);
@@ -89,6 +92,28 @@ export async function computeMonthSummary(kv: Store, month: string): Promise<Mon
     projectedRemaining = budget - projectedTotalSpend;
   }
 
+  /*
+   * The target resolves the same way the salary does: this month's override
+   * first, then the default that applies to every month, and finally the whole
+   * spendable budget — so the pace indicator works before anything is set up.
+   */
+  const positive = (value: number | undefined) =>
+    typeof value === "number" && Number.isFinite(value) && value > 0;
+
+  const target = positive(monthRecord.targetBudget)
+    ? { amount: monthRecord.targetBudget!, source: "month" as const }
+    : positive(settings.defaultTargetBudget)
+    ? { amount: settings.defaultTargetBudget!, source: "default" as const }
+    : { amount: budget, source: "budget" as const };
+
+  const pace = computeBudgetPace({
+    target: target.amount,
+    source: target.source,
+    spent: totalSpent,
+    daysInMonth: totalDays,
+    today,
+  });
+
   return {
     month,
     income: { base, addOns: monthRecord.addOns, total: incomeTotal },
@@ -102,5 +127,6 @@ export async function computeMonthSummary(kv: Store, month: string): Promise<Mon
     projectedRemaining,
     daysInMonth: totalDays,
     today,
+    pace,
   };
 }

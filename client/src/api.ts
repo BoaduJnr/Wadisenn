@@ -25,7 +25,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const getSettings = () => request<Settings>("/settings");
 
-export const saveSettings = (settings: Settings) =>
+export const saveSettings = (
+  /** Omitted fields keep their stored value; an explicit null clears one. */
+  // The nullable fields are omitted from the Partial and re-declared, or the
+  // intersection would narrow `number | null` back down to `number`.
+  settings: Partial<Omit<Settings, "displayCurrency" | "marketContext" | "defaultTargetBudget">> & {
+    displayCurrency?: string | null;
+    marketContext?: Settings["marketContext"] | null;
+    defaultTargetBudget?: number | null;
+  },
+) =>
   request<Settings>("/settings", { method: "PUT", body: JSON.stringify(settings) });
 
 export interface AdvisorThreadResponse extends AdvisorThread {
@@ -52,7 +61,11 @@ export const refreshRates = () => request<RatesResponse>("/rates/refresh", { met
 
 export const getMonthRecord = (month: string) => request<MonthRecord>(`/months/${month}`);
 
-export const saveMonthRecord = (month: string, record: { salaryOverride?: number | null; addOns: AddOn[] }) =>
+export const saveMonthRecord = (
+  month: string,
+  /** Omitted fields keep their stored value; an explicit null clears one. */
+  record: { salaryOverride?: number | null; addOns?: AddOn[]; targetBudget?: number | null },
+) =>
   request<MonthRecord>(`/months/${month}`, { method: "PUT", body: JSON.stringify(record) });
 
 export const addAddOn = (month: string, addOn: { label: string; amount: number }) =>

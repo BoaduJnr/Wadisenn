@@ -16,11 +16,32 @@ export async function getMonthHandler(_req: Request, kv: Store, params: Record<s
 }
 
 export async function putMonthHandler(req: Request, kv: Store, params: Record<string, string>): Promise<Response> {
-  const body = (await req.json()) as { salaryOverride?: number | null; addOns: AddOn[] };
+  const body = (await req.json()) as {
+    salaryOverride?: number | null;
+    addOns?: AddOn[];
+    targetBudget?: number | null;
+  };
+  const existing = await getMonthRecord(kv, params.month);
+
+  /*
+   * Fields are merged onto what is stored rather than replaced wholesale: the
+   * UI saves the salary override and the target from separate little forms, so
+   * a strict replace would have each one silently wipe the other. An explicit
+   * null clears a field; leaving it out keeps it.
+   */
+  const clearOrKeep = (incoming: number | null | undefined, current: number | undefined) => {
+    if (incoming === null) return undefined;
+    if (incoming === undefined) return current;
+    return Number.isFinite(incoming) && incoming > 0 ? incoming : undefined;
+  };
+
   const record: MonthRecord = {
     month: params.month,
-    salaryOverride: body.salaryOverride ?? undefined,
-    addOns: body.addOns ?? [],
+    salaryOverride: body.salaryOverride === null
+      ? undefined
+      : body.salaryOverride ?? existing.salaryOverride,
+    addOns: body.addOns ?? existing.addOns,
+    targetBudget: clearOrKeep(body.targetBudget, existing.targetBudget),
   };
   await kv.set(monthKey(params.month), record);
   return json(record);

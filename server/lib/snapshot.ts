@@ -77,6 +77,28 @@ export async function buildSnapshotText(kv: Store): Promise<string> {
   out.push(line("spendable budget after fixed costs", String(current.budget)));
   out.push(line("spent so far", String(round2(current.totalSpent))));
   out.push(line("free to spend right now", String(current.remaining)));
+
+  const pace = current.pace;
+  out.push(
+    line(
+      "spending target",
+      pace.source === "month"
+        ? `${pace.target} (set for this month)`
+        : pace.source === "default"
+        ? `${pace.target} (the user's default target for every month)`
+        : `${pace.target} (no target set; the whole spendable budget)`,
+    ),
+  );
+  if (pace.index !== null) {
+    out.push(line("  should have spent by now, to be on pace", String(pace.onPace)));
+    out.push(
+      line(
+        "  pace",
+        `${pace.index}x (${pace.status}; ${pace.variance! >= 0 ? "+" : ""}${pace.variance} against pace)`,
+      ),
+    );
+    out.push(line("  safe to spend per remaining day", `${pace.dailyAllowance} over ${pace.daysLeft} days`));
+  }
   if (current.projectedTotalSpend !== null) {
     out.push(line("projected total spend by month end", String(round2(current.projectedTotalSpend))));
     out.push(line("projected free at month end", String(round2(current.projectedRemaining ?? 0))));

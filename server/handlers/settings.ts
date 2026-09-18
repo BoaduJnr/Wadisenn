@@ -44,21 +44,63 @@ export async function getSettingsHandler(_req: Request, kv: Store): Promise<Resp
   return json(settings);
 }
 
+/** A positive amount, or undefined if it is not one. */
+function normaliseAmount(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return undefined;
+  return Math.round(value * 100) / 100;
+}
+
+type SettingsInput = Partial<Omit<Settings, "displayCurrency" | "marketContext">> & {
+  displayCurrency?: string | null;
+  marketContext?: MarketContext | null;
+  defaultTargetBudget?: number | null;
+};
+
+/**
+ * Fields are merged onto what is stored rather than replaced wholesale.
+ *
+ * Setup saves from several small independent forms — salary, display currency,
+ * benchmark rates, default target — and a strict replace would have each one
+ * silently wipe the others. An explicit null clears a field; leaving it out
+ * keeps it.
+ */
 export async function putSettingsHandler(req: Request, kv: Store): Promise<Response> {
-  const body = (await req.json()) as Settings;
-  if (typeof body.defaultMonthlySalary !== "number" || !Number.isFinite(body.defaultMonthlySalary)) {
-    return json({ error: "defaultMonthlySalary must be a number" }, 400);
+  const body = (await req.json()) as SettingsInput;
+  const existing = await getSettings(kv);
+
+  if (body.defaultMonthlySalary !== undefined) {
+    if (typeof body.defaultMonthlySalary !== "number" || !Number.isFinite(body.defaultMonthlySalary)) {
+      return json({ error: "defaultMonthlySalary must be a number" }, 400);
+    }
   }
-  const currency = normaliseCode(body.currency) ?? "GHS";
-  const display = normaliseCode(body.displayCurrency);
+
+  const currency = body.currency === undefined
+    ? existing.currency
+    : normaliseCode(body.currency) ?? "GHS";
+
+  let displayCurrency: string | undefined;
+  if (body.displayCurrency === null) displayCurrency = undefined;
+  else if (body.displayCurrency === undefined) displayCurrency = existing.displayCurrency;
+  else displayCurrency = normaliseCode(body.displayCurrency);
+  // "No conversion" is the absence of a value, never the base code repeated.
+  if (displayCurrency === currency) displayCurrency = undefined;
+
+  let marketContext: MarketContext | undefined;
+  if (body.marketContext === null) marketContext = undefined;
+  else if (body.marketContext === undefined) marketContext = existing.marketContext;
+  else marketContext = normaliseMarket(body.marketContext);
+
+  let defaultTargetBudget: number | undefined;
+  if (body.defaultTargetBudget === null) defaultTargetBudget = undefined;
+  else if (body.defaultTargetBudget === undefined) defaultTargetBudget = existing.defaultTargetBudget;
+  else defaultTargetBudget = normaliseAmount(body.defaultTargetBudget);
 
   const settings: Settings = {
-    defaultMonthlySalary: body.defaultMonthlySalary,
+    defaultMonthlySalary: body.defaultMonthlySalary ?? existing.defaultMonthlySalary,
     currency,
-    // Storing the display currency only when it differs keeps "no conversion"
-    // as the absence of a value rather than a second way of saying the same.
-    displayCurrency: display && display !== currency ? display : undefined,
-    marketContext: normaliseMarket(body.marketContext),
+    displayCurrency,
+    marketContext,
+    defaultTargetBudget,
   };
   await kv.set(settingsKey(), settings);
   return json(settings);

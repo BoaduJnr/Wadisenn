@@ -1,3 +1,5 @@
+import type { BudgetPace } from "./pace.ts";
+
 export interface Settings {
   defaultMonthlySalary: number;
   /**
@@ -13,6 +15,12 @@ export interface Settings {
   displayCurrency?: string;
   /** Benchmark rates the user has entered, for the advisor to reason against. */
   marketContext?: MarketContext;
+  /**
+   * A spending ceiling assumed for every month, in the same way
+   * `defaultMonthlySalary` is. A month may override it with its own
+   * `targetBudget`; absent here too, the whole spendable budget is the ceiling.
+   */
+  defaultTargetBudget?: number;
 }
 
 /**
@@ -44,6 +52,12 @@ export interface MonthRecord {
   month: string;
   salaryOverride?: number;
   addOns: AddOn[];
+  /**
+   * This month's own spending ceiling, overriding `defaultTargetBudget` the
+   * way `salaryOverride` overrides the default salary. Absent falls back to
+   * the default, then to the whole spendable budget.
+   */
+  targetBudget?: number;
 }
 
 export const EXPENSE_CATEGORIES = [
@@ -138,6 +152,8 @@ export interface MonthSummary {
   projectedRemaining: number | null;
   daysInMonth: number;
   today: number | null;
+  /** Spending against the target, measured against how much month has gone. */
+  pace: BudgetPace;
 }
 
 /** Commitment load across one calendar year. */

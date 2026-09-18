@@ -183,6 +183,53 @@ a SEC-licensed adviser for anything large or tax-sensitive. The landing page
 disclaimer and privacy copy were updated to match, since asking a question does
 send a summary of the user's figures to Google's Gemini API.
 
+## Spending target and pace
+
+A spending target is a ceiling on what you log, usually set below the spendable
+budget so there is something left to keep. It resolves exactly the way the
+salary does:
+
+1. `MonthRecord.targetBudget` — this month's override
+2. `Settings.defaultTargetBudget` — the default for every month
+3. the spendable budget (income less fixed costs)
+
+`pace.source` says which of the three is in play (`month`, `default` or
+`budget`) and `pace.custom` is the shorthand for "a target was actually set".
+Because of step 3 the indicator is useful before anything is configured.
+
+Settings are saved by merge, not replace: Setup has several small independent
+forms, so each sends only its own fields and an explicit `null` clears one.
+A strict replace would have had every form silently wipe the others.
+
+`shared/pace.ts` answers the question the target exists for — not "how much
+have I spent" but "am I spending faster than the month is passing":
+
+| Field | Meaning |
+|---|---|
+| `onPace` | what should have been spent by today to be exactly on track |
+| `variance` | `spent - onPace`; positive means going too fast |
+| `index` | `used / elapsed`; 1 is on pace, 2 is twice too fast |
+| `dailyAllowance` | what is safe per remaining day to still land on target |
+| `exhaustedOnDay` | the day the target runs out at this rate, *if that is early* |
+| `status` | `no-target`, `under`, `on`, `over` or `exhausted` |
+
+`status` is `on` while `index` stays within 10% of 1, so small wobbles do not
+flip the indicator back and forth.
+
+`PaceBar` shows both numbers at once: the fill is how much of the target is
+gone, the marker is how much of the *month* is gone. Fill behind the marker
+means slack; fill past it means the money is going faster than the days are.
+
+Two deliberate choices. Today counts as a day that has already gone, matching
+how the existing spend projection averages. And a target that runs out exactly
+on the last day is not flagged as running out early — that is the good
+outcome, not a warning.
+
+A known limitation: one large purchase early in the month makes `index` spike,
+because at that point very little of the month has elapsed to divide by. The
+figure is honest rather than damped, and `variance` in money is the steadier
+read.
+
 ## Currency
 
 Two currencies, doing different jobs:
