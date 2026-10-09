@@ -12,6 +12,7 @@ import { CommitmentsView } from "./views/CommitmentsView";
 import { DashboardView } from "./views/DashboardView";
 import { ExpenseListView } from "./views/ExpenseListView";
 import { LandingView } from "./views/LandingView";
+import { LoansView } from "./views/LoansView";
 import { SettingsView } from "./views/SettingsView";
 
 function Tracker() {
@@ -55,6 +56,7 @@ function Tracker() {
       {view === "fixed" && (
         <CommitmentsView money={money} onChanged={() => setDashboardKey((k) => k + 1)} />
       )}
+      {view === "loans" && <LoansView money={money} />}
       {view === "advisor" && <AdvisorView />}
       {view === "settings" && (
         <SettingsView

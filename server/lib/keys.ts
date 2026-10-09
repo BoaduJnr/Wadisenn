@@ -28,6 +28,14 @@ export function commitmentsPrefix(): StoreKey {
   return ["commitments"];
 }
 
+export function loanKey(id: string): StoreKey {
+  return ["loans", id];
+}
+
+export function loansPrefix(): StoreKey {
+  return ["loans"];
+}
+
 export function ratesKey(base: string): StoreKey {
   return ["rates", base];
 }

@@ -1,7 +1,7 @@
-import type { AddOn, Commitment, Expense, MonthSummary, Settings } from "../../shared/types.ts";
+import type { AddOn, Commitment, Expense, Loan, MonthSummary, Settings } from "../../shared/types.ts";
 import { commitmentsForMonth, round2 } from "../../shared/commitments.ts";
 import { computeBudgetPace } from "../../shared/pace.ts";
-import { commitmentsPrefix, expensesPrefix, monthKey, settingsKey } from "./keys.ts";
+import { commitmentsPrefix, expensesPrefix, loansPrefix, monthKey, settingsKey } from "./keys.ts";
 import type { Store } from "./store.ts";
 
 export function daysInMonth(month: string): number {
@@ -42,6 +42,21 @@ export async function listCommitments(kv: Store): Promise<Commitment[]> {
       a.cadence.localeCompare(b.cadence) || b.amount - a.amount || a.label.localeCompare(b.label),
   );
   return commitments;
+}
+
+/** Newest loan first, the way a ledger of recent lending reads. */
+export async function listLoans(kv: Store): Promise<Loan[]> {
+  const loans: Loan[] = [];
+  for await (const entry of kv.list<Loan>({ prefix: loansPrefix() })) {
+    loans.push(entry.value);
+  }
+  loans.sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+  return loans;
+}
+
+export function todayDateString(): string {
+  const now = new Date();
+  return `${currentMonthString()}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 export async function computeMonthSummary(kv: Store, month: string): Promise<MonthSummary> {

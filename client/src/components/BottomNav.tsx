@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type ViewKey = "dashboard" | "add" | "expenses" | "fixed" | "advisor" | "settings";
+export type ViewKey = "dashboard" | "add" | "expenses" | "fixed" | "loans" | "advisor" | "settings";
 
 const TABS: { key: ViewKey; label: string; icon: ReactNode }[] = [
   {
@@ -42,6 +42,17 @@ const TABS: { key: ViewKey; label: string; icon: ReactNode }[] = [
     ),
   },
   {
+    key: "loans",
+    label: "Lent",
+    // A coin leaving: money that is out with someone else.
+    icon: (
+      <>
+        <circle cx="9" cy="12" r="6" strokeLinecap="round" strokeLinejoin="round" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 9.5v5M15 12h7M19 9l3 3-3 3" />
+      </>
+    ),
+  },
+  {
     key: "advisor",
     label: "Advice",
     icon: (
@@ -74,7 +85,7 @@ export function BottomNav({ active, onChange }: { active: ViewKey; onChange: (ke
       className="pane-bottom fixed bottom-0 inset-x-0 z-20 border-t"
       style={{ background: "var(--surface-1)", borderColor: "var(--border)" }}
     >
-      <div className="max-w-md mx-auto grid grid-cols-6">
+      <div className="max-w-md mx-auto grid grid-cols-7">
         {TABS.map((tab) => {
           const isActive = tab.key === active;
           return (

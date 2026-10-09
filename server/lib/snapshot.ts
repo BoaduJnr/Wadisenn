@@ -1,5 +1,6 @@
 import type { Commitment, MonthSummary } from "../../shared/types.ts";
 import { commitmentsForYear, round2 } from "../../shared/commitments.ts";
+import { loanBalance, loansByPerson } from "../../shared/loans.ts";
 import { monthsPrefix } from "./keys.ts";
 import type { Store } from "./store.ts";
 import {
@@ -8,6 +9,8 @@ import {
   getSettings,
   listCommitments,
   listExpenses,
+  listLoans,
+  todayDateString,
 } from "./aggregate.ts";
 
 /** Months back to include in the history and category breakdowns. */
@@ -46,10 +49,11 @@ function describeCommitment(c: Commitment): string {
  */
 export async function buildSnapshotText(kv: Store): Promise<string> {
   const thisMonth = currentMonthString();
-  const [settings, commitments, current] = await Promise.all([
+  const [settings, commitments, current, loans] = await Promise.all([
     getSettings(kv),
     listCommitments(kv),
     computeMonthSummary(kv, thisMonth),
+    listLoans(kv),
   ]);
 
   const out: string[] = [];
@@ -168,6 +172,27 @@ export async function buildSnapshotText(kv: Store): Promise<string> {
       out.push(`  ${category}: ${round2(amount)} (${share}% of logged spending)`);
     }
     out.push(line("total logged over those months", String(round2(categoryTotal))));
+  }
+
+  // Lending sits outside the budget entirely, so it is reported on its own.
+  out.push("", "MONEY THE USER HAS LENT OUT (not counted in the budget above)");
+  const today = todayDateString();
+  const owing = loansByPerson(loans, today).filter((p) => p.outstanding > 0);
+  if (owing.length === 0) {
+    out.push(loans.length === 0 ? "  (none recorded)" : "  (all loans repaid)");
+  } else {
+    for (const p of owing) {
+      const details = p.loans
+        .filter((l) => !loanBalance(l, today).settled)
+        .map((l) => {
+          const { outstanding, overdue } = loanBalance(l, today);
+          const due = l.dueDate ? `, due ${l.dueDate}${overdue ? " (OVERDUE)" : ""}` : "";
+          return `${round2(outstanding)} of ${round2(l.amount)} lent ${l.date}${due}`;
+        })
+        .join("; ");
+      out.push(`  - ${p.person}: owes ${p.outstanding} (${details})`);
+    }
+    out.push(line("total still owed to the user", String(round2(owing.reduce((sum, p) => sum + p.outstanding, 0)))));
   }
 
   out.push("", "GHANAIAN BENCHMARK RATES (entered by the user; may be out of date)");

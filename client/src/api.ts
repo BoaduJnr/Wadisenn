@@ -4,6 +4,7 @@ import type {
   AdvisorThread,
   Commitment,
   Expense,
+  Loan,
   MonthRecord,
   MonthSummary,
   RatesResponse,
@@ -88,6 +89,28 @@ export const deleteCommitment = (id: string) =>
   request<{ ok: true }>(`/commitments/${id}`, { method: "DELETE" });
 
 export const getYearCommitments = (year: number) => request<YearCommitments>(`/commitments/year/${year}`);
+
+export const listLoans = () => request<Loan[]>("/loans");
+
+export type LoanInput = Pick<Loan, "person" | "amount" | "date"> & {
+  /** null clears a stored value on update. */
+  dueDate?: string | null;
+  note?: string | null;
+};
+
+export const createLoan = (loan: LoanInput) =>
+  request<Loan>("/loans", { method: "POST", body: JSON.stringify(loan) });
+
+export const updateLoan = (id: string, loan: Partial<LoanInput>) =>
+  request<Loan>(`/loans/${id}`, { method: "PUT", body: JSON.stringify(loan) });
+
+export const deleteLoan = (id: string) => request<{ ok: true }>(`/loans/${id}`, { method: "DELETE" });
+
+export const addRepayment = (loanId: string, repayment: { amount: number; date: string; note?: string }) =>
+  request<Loan>(`/loans/${loanId}/repayments`, { method: "POST", body: JSON.stringify(repayment) });
+
+export const deleteRepayment = (loanId: string, repaymentId: string) =>
+  request<Loan>(`/loans/${loanId}/repayments/${repaymentId}`, { method: "DELETE" });
 
 export const getMonthSummary = (month: string) => request<MonthSummary>(`/months/${month}/summary`);
 

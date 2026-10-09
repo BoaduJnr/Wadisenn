@@ -168,6 +168,38 @@ export interface YearCommitments {
   monthlyAverage: number;
 }
 
+/** One payment back against a loan. */
+export interface LoanRepayment {
+  id: string;
+  amount: number;
+  /** "YYYY-MM-DD" the money came back. */
+  date: string;
+  note?: string;
+  createdAt: string;
+}
+
+/**
+ * Money the user has lent to someone. It is tracked on its own and never
+ * touches the month budget: lending is not spending, and a repayment is not
+ * income, so counting either would make "left to spend" dishonest.
+ *
+ * What is still owed is derived from the repayments rather than stored, so the
+ * two can never disagree.
+ */
+export interface Loan {
+  id: string;
+  /** Who has the money. Loans group by this, ignoring case and spacing. */
+  person: string;
+  amount: number;
+  /** "YYYY-MM-DD" the money went out. */
+  date: string;
+  /** "YYYY-MM-DD" it was promised back by, if a date was agreed. */
+  dueDate?: string;
+  note?: string;
+  repayments: LoanRepayment[];
+  createdAt: string;
+}
+
 /** A cached table of base -> target multipliers, as stored in KV. */
 export interface RateSnapshot {
   base: string;

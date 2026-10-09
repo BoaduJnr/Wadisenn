@@ -15,6 +15,14 @@ import {
   updateCommitmentHandler,
 } from "./handlers/commitments.ts";
 import {
+  createLoanHandler,
+  createRepaymentHandler,
+  deleteLoanHandler,
+  deleteRepaymentHandler,
+  listLoansHandler,
+  updateLoanHandler,
+} from "./handlers/loans.ts";
+import {
   createExpenseHandler,
   deleteExpenseHandler,
   listExpensesHandler,
@@ -82,6 +90,21 @@ const routes: Route[] = [
     method: "DELETE",
     pattern: new URLPattern({ pathname: "/api/commitments/:id" }),
     handler: deleteCommitmentHandler,
+  },
+
+  { method: "GET", pattern: new URLPattern({ pathname: "/api/loans" }), handler: listLoansHandler },
+  { method: "POST", pattern: new URLPattern({ pathname: "/api/loans" }), handler: createLoanHandler },
+  { method: "PUT", pattern: new URLPattern({ pathname: "/api/loans/:id" }), handler: updateLoanHandler },
+  { method: "DELETE", pattern: new URLPattern({ pathname: "/api/loans/:id" }), handler: deleteLoanHandler },
+  {
+    method: "POST",
+    pattern: new URLPattern({ pathname: "/api/loans/:id/repayments" }),
+    handler: createRepaymentHandler,
+  },
+  {
+    method: "DELETE",
+    pattern: new URLPattern({ pathname: "/api/loans/:id/repayments/:repaymentId" }),
+    handler: deleteRepaymentHandler,
   },
 
   { method: "GET", pattern: new URLPattern({ pathname: "/api/months" }), handler: listMonthsHandler },

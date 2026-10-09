@@ -381,6 +381,41 @@ check(
 check("snapshot states the spending target", /spending target/i.test(ctx.body.snapshot));
 check("snapshot lists commitments", ctx.body.snapshot.includes("Internet"));
 
+console.log("\n== loans ==");
+const kofi = await call("POST", "/api/loans", { person: "  Kofi  Mensah ", amount: 500, date: "2026-03-02", dueDate: "2026-04-30" });
+check("loan created", kofi.status === 201, kofi.body);
+check("person spacing normalised", kofi.body.person === "Kofi Mensah", kofi.body.person);
+check("starts with no repayments", Array.isArray(kofi.body.repayments) && kofi.body.repayments.length === 0);
+await call("POST", "/api/loans", { person: "Ama", amount: 200, date: "2026-03-10" });
+check("two loans listed", (await call("GET", "/api/loans")).body.length === 2);
+
+for (const [name, payload] of [
+  ["missing person", { amount: 5, date: "2026-03-01" }],
+  ["zero amount", { person: "X", amount: 0, date: "2026-03-01" }],
+  ["impossible date", { person: "X", amount: 5, date: "2026-02-30" }],
+  ["due before lent", { person: "X", amount: 5, date: "2026-03-10", dueDate: "2026-03-01" }],
+] as const) {
+  check(`rejects loan with ${name}`, (await call("POST", "/api/loans", payload)).status === 400);
+}
+
+let repaid = await call("POST", `/api/loans/${kofi.body.id}/repayments`, { amount: 200, date: "2026-03-20" });
+check("repayment recorded", repaid.status === 201 && repaid.body.repayments.length === 1, repaid.body);
+check("rejects overpayment",
+  (await call("POST", `/api/loans/${kofi.body.id}/repayments`, { amount: 301, date: "2026-03-21" })).status === 400);
+check("rejects shrinking below repaid",
+  (await call("PUT", `/api/loans/${kofi.body.id}`, { amount: 150 })).status === 400);
+const loanEdited = await call("PUT", `/api/loans/${kofi.body.id}`, { amount: 600, dueDate: null });
+check("edit keeps repayments", loanEdited.body.repayments.length === 1, loanEdited.body);
+check("due date cleared by null", loanEdited.body.dueDate === undefined, loanEdited.body);
+repaid = await call("DELETE", `/api/loans/${kofi.body.id}/repayments/${repaid.body.repayments[0].id}`);
+check("repayment removed", repaid.body.repayments.length === 0, repaid.body);
+check("404 repaying a missing loan",
+  (await call("POST", "/api/loans/nope/repayments", { amount: 1, date: "2026-03-01" })).status === 404);
+const loanCtx = (await call("GET", "/api/advisor/context")).body.snapshot as string;
+check("snapshot lists who owes what", loanCtx.includes("Kofi Mensah: owes 600"), loanCtx.slice(-600));
+check("delete loan", (await call("DELETE", `/api/loans/${kofi.body.id}`)).status === 200);
+check("one loan remains", (await call("GET", "/api/loans")).body.length === 1);
+
 console.log("\n== 404 for unknown routes ==");
 check("unknown path", (await call("GET", "/api/nope")).status === 404);
 check("wrong method", (await call("DELETE", "/api/settings")).status === 404);

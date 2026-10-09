@@ -46,11 +46,12 @@ shared/
   types.ts             — types shared by client and server
   commitments.ts       — pure fixed-cost maths, shared so the server summary and
                          the client's yearly view cannot drift apart
+  loans.ts             � loan balances and per-person grouping, shared the same way
 server/
   main.ts              — entry point: connects to Mongo, serves the API and client
   router.ts            — route table
-  handlers/            — settings / months / expenses / commitments / rates /
-                         advisor endpoints
+  handlers/            — settings / months / expenses / commitments / loans /
+                         rates / advisor endpoints
   lib/
     store.ts           — the storage interface the server is written against
     mongo-store.ts     — MongoDB implementation of it
@@ -74,7 +75,7 @@ client/
     api.ts             — fetch wrapper for the backend
     hooks/             — useSettings, useSummary, useExpenses, useMonthRecord,
                          useMonthHistory, useCommitments, useYearCommitments,
-                         useRates, useAdvisor
+                         useLoans, useRates, useAdvisor
     lib/navigation.ts  — the two-route path switch (landing vs. tracker)
     lib/accumulation.ts — the month-on-month running total of what is left
     lib/money.ts       — the one place amounts are formatted and converted
