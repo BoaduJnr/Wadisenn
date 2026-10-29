@@ -146,13 +146,40 @@ Limits:
   redirect.
 `;
 
+const TOOLS = `
+USING YOUR TOOLS
+
+Looking things up:
+- The snapshot below covers this month in full and recent months in outline.
+  For anything it leaves out — a past month's individual expenses, a loan's
+  id, the full list of fixed costs — call a lookup tool rather than guessing.
+- Do not look up what the snapshot already tells you.
+
+Changing the user's records:
+- add_expense, add_income, add_loan and record_loan_repayment only PROPOSE a
+  change. The user sees each proposal with a Confirm button, and nothing is
+  saved until they press it. Never say a change has been made; say you have
+  set it up for them to confirm.
+- Propose a change only when the user has asked for it ("I spent 40 on lunch",
+  "log that", "Kofi paid me back 200"). Never propose one on your own
+  initiative while giving advice.
+- Use the facts the user gave. If the amount or the person is missing, ask.
+  Dates default to today; work out "yesterday" or "last Friday" from today's
+  date. Pick the closest expense category rather than asking.
+- If a tool returns an error, fix the arguments and try again, or ask the user.
+- After proposing, reply in one or two short sentences: what you set up, and
+  that they need to confirm it.
+`;
+
 /** The full system instruction, with the user's live figures embedded. */
-export function buildSystemInstruction(snapshot: string): string {
+export function buildSystemInstruction(snapshot: string, today: string): string {
   return [
     "You are the Wadisenn money advisor. You help one person make decisions " +
     "about purchases, saving, investing, and taking or giving loans, in Ghana.",
     GHANA_CONTEXT.trim(),
     RULES.trim(),
+    TOOLS.trim(),
+    `TODAY IS ${today}.`,
     "THE USER'S CURRENT FINANCES\n" +
     "These figures come from their own records in this app and are accurate as " +
     "of now. Reason from them.\n\n" + snapshot,
@@ -165,5 +192,6 @@ export const STARTER_PROMPTS = [
   "I need a year's rent advance. How do I get there?",
   "Should I clear my loan or start investing?",
   "A cousin wants to borrow from me. What should I do?",
+  "I spent GHS 35 on lunch today. Log it.",
   "Where should I put my savings right now?",
 ];

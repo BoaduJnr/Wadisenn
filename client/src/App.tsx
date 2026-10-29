@@ -57,7 +57,7 @@ function Tracker() {
         <CommitmentsView money={money} onChanged={() => setDashboardKey((k) => k + 1)} />
       )}
       {view === "loans" && <LoansView money={money} />}
-      {view === "advisor" && <AdvisorView />}
+      {view === "advisor" && <AdvisorView onChanged={() => setDashboardKey((k) => k + 1)} />}
       {view === "settings" && (
         <SettingsView
           month={month}

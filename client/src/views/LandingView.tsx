@@ -189,7 +189,7 @@ const FAQ_ENTRIES: FaqEntry[] = [
   {
     question: "Is my data sent anywhere when I use the advisor?",
     answer:
-      "Yes, and only then. To answer a question it sends a summary of your figures — income, fixed costs, monthly totals and category breakdown — to Google’s Gemini API. You can see that summary in full before asking, on the Advice tab. If you never open the advisor, or the server has no API key configured, nothing leaves your instance at all. Every other part of Wadisenn works without it.",
+      "Yes, and only then. To answer a question it sends a summary of your figures — income, fixed costs, monthly totals and category breakdown — to NVIDIA’s hosted AI API. You can see that summary in full before asking, on the Advice tab. If you never open the advisor, or the server has no API key configured, nothing leaves your instance at all. Every other part of Wadisenn works without it.",
   },
   {
     question: "Is this financial advice?",
@@ -204,7 +204,7 @@ const FAQ_ENTRIES: FaqEntry[] = [
   {
     question: "Where is my data stored?",
     answer:
-      "In your own Wadisenn instance. Run locally, everything sits in a database file on your machine; deployed, it sits in the key-value store of the deployment you control. Nothing is shared with anyone else, with one exception you control: asking the advisor a question sends a summary of your figures to Google’s Gemini API, as described above.",
+      "In your own Wadisenn instance. Run locally, everything sits in a database file on your machine; deployed, it sits in the key-value store of the deployment you control. Nothing is shared with anyone else, with one exception you control: asking the advisor a question sends a summary of your figures to NVIDIA’s hosted AI API, as described above.",
   },
   {
     question: "Is it free, and is there an account?",

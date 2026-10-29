@@ -220,6 +220,31 @@ export interface RatesResponse {
 
 export type AdvisorRole = "user" | "advisor";
 
+/** The advisor's tools that change the user's records. */
+export type AdvisorActionTool = "add_expense" | "add_income" | "add_loan" | "record_loan_repayment";
+
+export type AdvisorActionStatus = "pending" | "applied" | "dismissed" | "failed";
+
+/**
+ * A change the advisor wants to make to the user's records.
+ *
+ * The advisor never writes anything itself. It proposes, the user sees the
+ * proposal in the chat, and only their confirmation applies it — through the
+ * same API, and so the same validation, as the app's own forms.
+ */
+export interface AdvisorAction {
+  id: string;
+  tool: AdvisorActionTool;
+  /** Arguments as validated when proposed, replayed exactly on confirm. */
+  args: Record<string, unknown>;
+  /** Plain-language description built by the server, never by the model. */
+  summary: string;
+  status: AdvisorActionStatus;
+  /** Why applying it failed, when status is "failed". */
+  error?: string;
+  resolvedAt?: string;
+}
+
 export interface AdvisorMessage {
   id: string;
   role: AdvisorRole;
@@ -227,11 +252,15 @@ export interface AdvisorMessage {
   createdAt: string;
   /** Set when the turn failed, so the UI can offer a retry instead of a reply. */
   error?: string;
+  /** Advisor turns only: what it looked up to answer, e.g. "Spending in 2026-10". */
+  lookups?: string[];
+  /** Advisor turns only: changes it proposed, awaiting or past confirmation. */
+  actions?: AdvisorAction[];
 }
 
 export interface AdvisorThread {
   messages: AdvisorMessage[];
   updatedAt: string | null;
-  /** False when the server has no GEMINI_API_KEY, so the UI can explain why. */
+  /** False when the server has no NVIDIA_API_KEY, so the UI can explain why. */
   enabled: boolean;
 }

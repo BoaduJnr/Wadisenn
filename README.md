@@ -25,7 +25,7 @@ it — reserves a twelfth of itself every month so no single month takes the hit
 It also has a **money advisor**: a chat that reads your actual figures and
 answers questions about purchases, loans either way, and where to put savings,
 reasoning within Ghanaian conditions. It is optional, and off unless a
-`GEMINI_API_KEY` is set.
+`NVIDIA_API_KEY` is set.
 
 ## Stack
 
@@ -46,7 +46,7 @@ shared/
   types.ts             — types shared by client and server
   commitments.ts       — pure fixed-cost maths, shared so the server summary and
                          the client's yearly view cannot drift apart
-  loans.ts             � loan balances and per-person grouping, shared the same way
+  loans.ts             — loan balances and per-person grouping, shared the same way
 server/
   main.ts              — entry point: connects to Mongo, serves the API and client
   router.ts            — route table
@@ -63,7 +63,9 @@ server/
     rates.ts           — exchange-rate fetch + cache
     snapshot.ts        — the advisor's view of your finances
     advisor-prompt.ts  — the advisor's system instruction
-    gemini.ts          — Gemini client
+    advisor-agent.ts   — one chat turn: the model, its tool calls, and the loop
+    advisor-tools.ts   — the tools the advisor may call, and applying proposals
+    nvidia.ts          — NVIDIA client
     ulid.ts            — id generator
 scripts/
   store.test.ts        — storage behaviour tests against a real mongod
@@ -116,7 +118,7 @@ isn't a file on disk, so all of these survive a hard refresh.
 A chat that answers questions about purchases, saving, investing, and lending or
 borrowing, grounded in the user's own records.
 
-**Setup.** The advisor needs `GEMINI_API_KEY`, read from the environment only.
+**Setup.** The advisor needs `NVIDIA_API_KEY`, read from the environment only.
 There is deliberately no fallback key in the source: a committed secret can be
 spent by anyone who can read the repo, and deleting it later does not remove it
 from git history. Without a key the Advice tab still renders and explains that
@@ -126,19 +128,19 @@ sent anywhere.
 Either export it:
 
 ```sh
-GEMINI_API_KEY=... npm run dev
+NVIDIA_API_KEY=... npm run dev
 ```
 
 ...or copy `.env.example` to `.env` (gitignored) and put it there, which
 `server/lib/env.ts` reads at startup:
 
 ```sh
-cp .env.example .env    # then fill in GEMINI_API_KEY
+cp .env.example .env    # then fill in NVIDIA_API_KEY
 npm run dev
 ```
 
-A real environment variable wins over `.env`. `GEMINI_MODEL` overrides the model
-(default `gemini-3.6-flash`), and both sources are checked for it too. The
+A real environment variable wins over `.env`. `NVIDIA_MODEL` overrides the model
+(default `nvidia/nemotron-3.5-bolt-e4b`), and both sources are checked for it too. The
 server logs once at startup when no key is configured, so a switched-off advisor
 is never a surprise.
 
@@ -168,11 +170,39 @@ enters in Setup (`settings.marketContext`: 91-day T-bill, inflation, typical loa
 APR), which the snapshot carries and the advisor does real arithmetic against.
 Anything missing, it asks for, or points at a source.
 
-Search grounding would remove that limitation, but the free Gemini tier has no
-quota for it (every grounded call returns 429), so it is off. Set
-`ADVISOR_SEARCH=1` on a paid key to enable it.
+The model is called through NVIDIA's OpenAI-compatible chat completions API
+(`server/lib/nvidia.ts`), which has no search grounding, so the advisor never
+looks anything up live.
 
-**Failure behaviour.** 429 and 503 are retried with backoff; 401, 403 and 404 are
+**Tools.** The advisor is an agent: alongside the snapshot it can call tools,
+defined in `server/lib/advisor-tools.ts` and run by the loop in
+`server/lib/advisor-agent.ts` (at most six model calls per turn).
+
+| Tool | Kind | What it does |
+|---|---|---|
+| `get_month_summary` | lookup | the full summary of any month |
+| `list_expenses` | lookup | a month's expenses, optionally one category |
+| `list_loans` | lookup | loans with ids, balances and due dates |
+| `list_commitments` | lookup | every fixed cost |
+| `add_expense` | proposal | log spending |
+| `add_income` | proposal | add one-off income to a month |
+| `add_loan` | proposal | record money lent |
+| `record_loan_repayment` | proposal | record money paid back, by loan id or by name |
+
+Lookups run as soon as the model asks, and only ever read the user's own
+records; the reply notes what was looked at. Proposals never write anything.
+Each is checked when proposed (a bad one goes back to the model as an error to
+fix or ask about), described in a summary the server writes rather than the
+model, and shown in the chat with Confirm and Dismiss. Only Confirm applies it,
+through the same handler and validation as the app's own form, and a proposal
+can be settled once. Past outcomes are replayed to the model on later turns, so
+it knows what was saved and what was turned down.
+
+If the configured model does not support function calling, the API rejects the
+tool definitions; the advisor then carries on as plain chat for that model
+rather than failing.
+
+**Failure behaviour.** 429, 502 and 503 are retried with backoff; 401, 403 and 404 are
 reported as the configuration problems they are. When a turn fails the question
 is still persisted, so the UI offers "Ask again" with the text intact instead of
 losing it. Replies render through a small hand-rolled Markdown subset that builds
@@ -182,7 +212,7 @@ markup.
 **It is not advice.** The advisor gives general guidance, says so, and points at
 a SEC-licensed adviser for anything large or tax-sensitive. The landing page
 disclaimer and privacy copy were updated to match, since asking a question does
-send a summary of the user's figures to Google's Gemini API.
+send a summary of the user's figures to NVIDIA's hosted AI API.
 
 ## Spending target and pace
 
@@ -401,7 +431,7 @@ point Render at `render.yaml`, or configure it by hand:
 | `NODE_VERSION` | `24` |
 | `MONGODB_URI` | your Atlas connection string (secret) |
 | `MONGODB_DB` | `wadisenn` |
-| `GEMINI_API_KEY` | optional; advisor is off without it |
+| `NVIDIA_API_KEY` | optional; advisor is off without it |
 
 `PORT` is injected by Render and read by `server/main.ts`; the server binds
 `0.0.0.0`, which Render requires. The client bundle is built at deploy time and
@@ -512,9 +542,15 @@ position instead of restarting from zero at the left edge of the chart.
 | GET / POST | `/api/commitments` | list / create a fixed cost |
 | PUT / DELETE | `/api/commitments/:id` | edit / delete a fixed cost |
 | GET | `/api/commitments/year/:year` | the twelve-month commitment load |
+| GET / POST | `/api/loans` | list / record money lent |
+| PUT / DELETE | `/api/loans/:id` | edit / delete a loan |
+| POST | `/api/loans/:id/repayments` | record a repayment |
+| DELETE | `/api/loans/:id/repayments/:repaymentId` | remove a repayment |
 | GET | `/api/rates` | cached rate table for the base currency |
 | POST | `/api/rates/refresh` | force a rate refresh, ignoring the cache window |
 | GET | `/api/advisor` | the chat thread, plus whether the advisor is configured |
 | GET | `/api/advisor/context` | the exact snapshot the advisor is sent |
 | POST | `/api/advisor/messages` | ask a question, get the next turn |
+| POST | `/api/advisor/actions/:id/confirm` | apply a change the advisor proposed |
+| POST | `/api/advisor/actions/:id/dismiss` | turn a proposal down |
 | DELETE | `/api/advisor` | clear the thread |

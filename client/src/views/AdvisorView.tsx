@@ -2,9 +2,95 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { getAdvisorContext } from "../api";
 import { AdvisorText } from "../components/AdvisorText";
 import { useAdvisor } from "../hooks/useAdvisor";
-import type { AdvisorMessage } from "../types";
+import type { AdvisorAction, AdvisorMessage } from "../types";
 
-function Bubble({ message }: { message: AdvisorMessage }) {
+type Resolve = (id: string, confirm: boolean) => Promise<void>;
+
+const ACTION_TITLES: Record<AdvisorAction["tool"], string> = {
+  add_expense: "Log expense",
+  add_income: "Add income",
+  add_loan: "Record loan",
+  record_loan_repayment: "Record repayment",
+};
+
+/**
+ * A change the advisor wants to make. Nothing is saved until Confirm, and the
+ * summary is written by the server from the checked values, not by the model.
+ */
+function ActionCard({ action, onResolve }: { action: AdvisorAction; onResolve: Resolve }) {
+  const [busy, setBusy] = useState(false);
+
+  async function decide(confirm: boolean) {
+    setBusy(true);
+    try {
+      await onResolve(action.id, confirm);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const settled = action.status !== "pending";
+  const statusLabel = {
+    pending: null,
+    applied: { text: "Saved", color: "var(--status-good)" },
+    dismissed: { text: "Dismissed", color: "var(--muted)" },
+    failed: { text: "Not saved", color: "var(--status-critical)" },
+  }[action.status];
+
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-lg border p-3"
+      style={{
+        background: "var(--surface-2)",
+        borderColor: action.status === "pending" ? "var(--brand)" : "var(--border)",
+        opacity: action.status === "dismissed" ? 0.7 : 1,
+      }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--brand)" }}>
+          {ACTION_TITLES[action.tool]}
+        </span>
+        {statusLabel && (
+          <span className="text-[11px] font-semibold" style={{ color: statusLabel.color }}>
+            {statusLabel.text}
+          </span>
+        )}
+      </div>
+      <p className="text-sm leading-snug" style={{ color: "var(--text-primary)" }}>
+        {action.summary}
+      </p>
+      {action.status === "failed" && action.error && (
+        <p className="text-xs" style={{ color: "var(--status-critical)" }}>
+          {action.error}
+        </p>
+      )}
+      {!settled && (
+        <div className="grid grid-cols-2 gap-2 pt-0.5">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void decide(false)}
+            className="h-9 rounded-lg border font-display text-xs font-semibold disabled:opacity-60"
+            style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+          >
+            Dismiss
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void decide(true)}
+            className="h-9 rounded-lg font-display text-xs font-semibold disabled:opacity-60"
+            style={{ background: "var(--accent)", color: "var(--on-brand)" }}
+          >
+            Confirm
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Bubble({ message, onResolve }: { message: AdvisorMessage; onResolve: Resolve }) {
   const isUser = message.role === "user";
 
   if (isUser) {
@@ -31,7 +117,15 @@ function Bubble({ message }: { message: AdvisorMessage }) {
           color: "var(--text-secondary)",
         }}
       >
-        <AdvisorText text={message.text} />
+        <div className="flex flex-col gap-2.5">
+          {message.text && <AdvisorText text={message.text} />}
+          {message.actions?.map((action) => <ActionCard key={action.id} action={action} onResolve={onResolve} />)}
+          {message.lookups && message.lookups.length > 0 && (
+            <p className="text-[10px] leading-snug" style={{ color: "var(--muted)" }}>
+              Looked at: {message.lookups.join(" · ")}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -109,8 +203,9 @@ function ContextPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function AdvisorView() {
-  const { messages, starters, enabled, loading, sending, canRetry, error, send, retry, clear } = useAdvisor();
+export function AdvisorView({ onChanged }: { onChanged?: () => void }) {
+  const { messages, starters, enabled, loading, sending, canRetry, error, send, retry, resolve, clear } =
+    useAdvisor(onChanged);
   const [draft, setDraft] = useState("");
   const [showContext, setShowContext] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -136,7 +231,7 @@ export function AdvisorView() {
           </h1>
           <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             Ask about a purchase, a loan either way, or where to put savings. It reads your real figures and
-            answers for Ghana.
+            answers for Ghana. Tell it what you spent or lent and it will set the entry up for you to confirm.
           </p>
         </div>
         {messages.length > 0 && (
@@ -174,7 +269,7 @@ export function AdvisorView() {
           }}
         >
           <strong style={{ color: "var(--text-primary)" }}>The advisor is switched off.</strong> Set a{" "}
-          <code>GEMINI_API_KEY</code> environment variable on the server and restart it. Everything else in
+          <code>NVIDIA_API_KEY</code> environment variable on the server and restart it. Everything else in
           Wadisenn works without one.
         </div>
       )}
@@ -210,7 +305,7 @@ export function AdvisorView() {
 
       {messages.length > 0 && (
         <div className="flex flex-col gap-3 pt-1">
-          {messages.map((message) => <Bubble key={message.id} message={message} />)}
+          {messages.map((message) => <Bubble key={message.id} message={message} onResolve={resolve} />)}
           {sending && <Thinking />}
         </div>
       )}
@@ -280,7 +375,7 @@ export function AdvisorView() {
       </form>
 
       <p className="text-[10px] leading-relaxed" style={{ color: "var(--muted)" }}>
-        Your figures above are sent to Google&rsquo;s Gemini API to produce each answer. This is general
+        Your figures above are sent to NVIDIA&rsquo;s hosted AI API to produce each answer. This is general
         guidance, not licensed financial advice — confirm big decisions with a SEC-licensed adviser.
       </p>
     </div>

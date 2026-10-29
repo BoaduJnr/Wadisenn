@@ -29,7 +29,9 @@ import {
   updateExpenseHandler,
 } from "./handlers/expenses.ts";
 import {
+  confirmAdvisorActionHandler,
   deleteAdvisorThreadHandler,
+  dismissAdvisorActionHandler,
   getAdvisorContextHandler,
   getAdvisorThreadHandler,
   postAdvisorMessageHandler,
@@ -60,6 +62,16 @@ const routes: Route[] = [
     method: "POST",
     pattern: new URLPattern({ pathname: "/api/advisor/messages" }),
     handler: postAdvisorMessageHandler,
+  },
+  {
+    method: "POST",
+    pattern: new URLPattern({ pathname: "/api/advisor/actions/:id/confirm" }),
+    handler: confirmAdvisorActionHandler,
+  },
+  {
+    method: "POST",
+    pattern: new URLPattern({ pathname: "/api/advisor/actions/:id/dismiss" }),
+    handler: dismissAdvisorActionHandler,
   },
   {
     method: "DELETE",

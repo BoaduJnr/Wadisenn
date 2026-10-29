@@ -1,8 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
-import { clearAdvisorThread, getAdvisorThread, sendAdvisorMessage } from "../api";
-import type { AdvisorMessage } from "../types";
+import {
+  clearAdvisorThread,
+  confirmAdvisorAction,
+  dismissAdvisorAction,
+  getAdvisorThread,
+  sendAdvisorMessage,
+} from "../api";
+import type { AdvisorAction, AdvisorMessage } from "../types";
 
-export function useAdvisor() {
+/** Swaps one action's new state into whichever message holds it. */
+function withAction(messages: AdvisorMessage[], updated: AdvisorAction): AdvisorMessage[] {
+  return messages.map((m) =>
+    m.actions?.some((a) => a.id === updated.id)
+      ? { ...m, actions: m.actions.map((a) => (a.id === updated.id ? updated : a)) }
+      : m,
+  );
+}
+
+/** `onApplied` runs after a confirmed change is saved, so other views can refresh. */
+export function useAdvisor(onApplied?: () => void) {
   const [messages, setMessages] = useState<AdvisorMessage[]>([]);
   const [starters, setStarters] = useState<string[]>([]);
   const [enabled, setEnabled] = useState(true);
@@ -60,6 +76,25 @@ export function useAdvisor() {
     await send(last.text);
   }, [messages, send]);
 
+  /**
+   * Confirms or dismisses a proposal. A failure to save still comes back with
+   * the action, now marked failed with the reason, so it is shown on the card.
+   */
+  const resolve = useCallback(
+    async (id: string, confirm: boolean) => {
+      try {
+        const { action } = await (confirm ? confirmAdvisorAction(id) : dismissAdvisorAction(id));
+        setMessages((current) => withAction(current, action));
+        if (action.status === "applied") onApplied?.();
+      } catch (err) {
+        // Already handled elsewhere, or gone: re-read the thread for the truth.
+        setError(err instanceof Error ? err.message : "Could not update that suggestion.");
+        load();
+      }
+    },
+    [onApplied, load],
+  );
+
   const clear = useCallback(async () => {
     await clearAdvisorThread();
     setMessages([]);
@@ -71,5 +106,5 @@ export function useAdvisor() {
   // offer a retry rather than spin forever waiting for a reply that never came.
   const canRetry = !sending && messages[messages.length - 1]?.role === "user";
 
-  return { messages, starters, enabled, loading, sending, canRetry, error, send, retry, clear, reload: load };
+  return { messages, starters, enabled, loading, sending, canRetry, error, send, retry, resolve, clear, reload: load };
 }

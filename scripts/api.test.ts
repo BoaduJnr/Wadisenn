@@ -343,7 +343,7 @@ check("overlong question rejected",
 // A .env in the project root supplies a key even when the variable is unset,
 // so assert whichever branch is actually in effect rather than assuming one.
 if (thread.body.enabled) {
-  console.log("  (a GEMINI_API_KEY is configured, so checking the live path)");
+  console.log("  (a NVIDIA_API_KEY is configured, so checking the live path)");
   const asked = await call("POST", "/api/advisor/messages", {
     text: "In one short sentence: am I on track this month?",
   });
@@ -361,11 +361,15 @@ if (thread.body.enabled) {
   await call("DELETE", "/api/advisor");
   check("thread cleared", (await call("GET", "/api/advisor")).body.messages.length === 0);
 } else {
-  console.log("  (no GEMINI_API_KEY, so checking the switched-off path)");
+  console.log("  (no NVIDIA_API_KEY, so checking the switched-off path)");
   check("501 without a key",
     (await call("POST", "/api/advisor/messages", { text: "Can I afford a laptop?" })).status === 501);
   check("nothing persisted", (await call("GET", "/api/advisor")).body.messages.length === 0);
 }
+check("confirming an unknown proposal is a 404",
+  (await call("POST", "/api/advisor/actions/nope/confirm")).status === 404);
+check("dismissing an unknown proposal is a 404",
+  (await call("POST", "/api/advisor/actions/nope/dismiss")).status === 404);
 const ctx = await call("GET", "/api/advisor/context");
 check("snapshot builds", ctx.status === 200 && ctx.body.snapshot.includes("CURRENCY"));
 // Assert against the live figure rather than a literal, so earlier sections

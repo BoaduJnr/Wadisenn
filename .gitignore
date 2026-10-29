@@ -6,7 +6,7 @@ client/dist/
 data/
 kv-export.json
 
-# Local secrets (GEMINI_API_KEY, etc.) — never commit these
+# Local secrets (NVIDIA_API_KEY, etc.) — never commit these
 .env
 .env.*
 !.env.example

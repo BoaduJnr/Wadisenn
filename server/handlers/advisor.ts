@@ -1,8 +1,11 @@
-import type { AdvisorMessage, AdvisorThread } from "../../shared/types.ts";
+import type { AdvisorAction, AdvisorMessage, AdvisorThread } from "../../shared/types.ts";
 import { advisorThreadKey } from "../lib/keys.ts";
 import { buildSnapshotText } from "../lib/snapshot.ts";
 import { buildSystemInstruction, STARTER_PROMPTS } from "../lib/advisor-prompt.ts";
-import { AdvisorError, advisorConfigured, advisorModel, generateAdvice } from "../lib/gemini.ts";
+import { AdvisorError, advisorConfigured, advisorModel } from "../lib/nvidia.ts";
+import { runAdvisorTurn } from "../lib/advisor-agent.ts";
+import { applyAction } from "../lib/advisor-tools.ts";
+import { todayDateString } from "../lib/aggregate.ts";
 import { json } from "../lib/http.ts";
 import { ulid } from "../lib/ulid.ts";
 import type { Store } from "../lib/store.ts";
@@ -27,7 +30,7 @@ export async function getAdvisorThreadHandler(_req: Request, kv: Store): Promise
   return json(body);
 }
 
-/** The snapshot verbatim, so the user can see exactly what is sent to Gemini. */
+/** The snapshot verbatim, so the user can see exactly what is sent to the model. */
 export async function getAdvisorContextHandler(_req: Request, kv: Store): Promise<Response> {
   return json({ snapshot: await buildSnapshotText(kv) });
 }
@@ -59,8 +62,17 @@ export async function postAdvisorMessageHandler(req: Request, kv: Store): Promis
 
   let reply: AdvisorMessage;
   try {
-    const answer = await generateAdvice(buildSystemInstruction(snapshot), history);
-    reply = { id: ulid(), role: "advisor", text: answer, createdAt: new Date().toISOString() };
+    const turn = await runAdvisorTurn(kv, buildSystemInstruction(snapshot, todayDateString()), history);
+    reply = {
+      id: ulid(),
+      role: "advisor",
+      // A model that proposes a change and stops without a word still owes
+      // the user a sentence, or the card would appear with no explanation.
+      text: turn.text || (turn.actions.length > 0 ? "I've set this up for you to confirm:" : ""),
+      createdAt: new Date().toISOString(),
+      ...(turn.lookups.length > 0 ? { lookups: turn.lookups } : {}),
+      ...(turn.actions.length > 0 ? { actions: turn.actions } : {}),
+    };
   } catch (err) {
     const status = err instanceof AdvisorError ? err.status : 502;
     const message = err instanceof Error ? err.message : "The advisor failed.";
@@ -82,4 +94,62 @@ export async function postAdvisorMessageHandler(req: Request, kv: Store): Promis
 export async function deleteAdvisorThreadHandler(_req: Request, kv: Store): Promise<Response> {
   await kv.delete(advisorThreadKey());
   return json({ ok: true });
+}
+
+/** Finds a proposed action anywhere in the thread, with the message holding it. */
+function findAction(messages: AdvisorMessage[], id: string): { message: AdvisorMessage; action: AdvisorAction } | null {
+  for (const message of messages) {
+    const action = message.actions?.find((a) => a.id === id);
+    if (action) return { message, action };
+  }
+  return null;
+}
+
+/**
+ * Settles one proposal. Confirming applies it through the app's own handler;
+ * either way the outcome is written back onto the message, so the chat and the
+ * model's view of past turns both show what really happened.
+ */
+async function resolveAction(kv: Store, id: string, confirm: boolean): Promise<Response> {
+  const thread = await readThread(kv);
+  const found = findAction(thread.messages, id);
+  if (!found) return json({ error: "That suggestion is no longer in the chat." }, 404);
+
+  const { action } = found;
+  // Only a pending proposal can be decided, so a double tap cannot save twice.
+  if (action.status !== "pending") return json({ error: "That suggestion was already handled.", action }, 409);
+
+  if (confirm) {
+    const result = await applyAction(action, kv);
+    if ("error" in result) {
+      action.status = "failed";
+      action.error = result.error;
+    } else {
+      action.status = "applied";
+    }
+  } else {
+    action.status = "dismissed";
+  }
+  action.resolvedAt = new Date().toISOString();
+
+  await kv.set(advisorThreadKey(), { messages: thread.messages, updatedAt: new Date().toISOString() });
+  // 200 even when saving failed: the request did its job, and the reason is on
+  // the action for the chat to show where the user pressed Confirm.
+  return json({ action });
+}
+
+export async function confirmAdvisorActionHandler(
+  _req: Request,
+  kv: Store,
+  params: Record<string, string>,
+): Promise<Response> {
+  return await resolveAction(kv, params.id, true);
+}
+
+export async function dismissAdvisorActionHandler(
+  _req: Request,
+  kv: Store,
+  params: Record<string, string>,
+): Promise<Response> {
+  return await resolveAction(kv, params.id, false);
 }

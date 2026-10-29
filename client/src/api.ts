@@ -1,5 +1,6 @@
 import type {
   AddOn,
+  AdvisorAction,
   AdvisorMessage,
   AdvisorThread,
   Commitment,
@@ -53,6 +54,13 @@ export const sendAdvisorMessage = (text: string) =>
     method: "POST",
     body: JSON.stringify({ text }),
   });
+
+/** Applies a change the advisor proposed. */
+export const confirmAdvisorAction = (id: string) =>
+  request<{ action: AdvisorAction }>(`/advisor/actions/${id}/confirm`, { method: "POST" });
+
+export const dismissAdvisorAction = (id: string) =>
+  request<{ action: AdvisorAction }>(`/advisor/actions/${id}/dismiss`, { method: "POST" });
 
 export const clearAdvisorThread = () => request<{ ok: true }>("/advisor", { method: "DELETE" });
 

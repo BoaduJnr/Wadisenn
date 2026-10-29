@@ -56,15 +56,15 @@ export function readEnv(name: string): string | undefined {
   return process.env[name]?.trim() || readDotEnv()[name]?.trim() || undefined;
 }
 
-export function geminiApiKey(): string | undefined {
-  return readEnv("GEMINI_API_KEY");
+export function nvidiaApiKey(): string | undefined {
+  return readEnv("NVIDIA_API_KEY");
 }
 
 /** Says once at startup whether the advisor will work, so it is not a surprise. */
 export function reportAdvisorConfig(): void {
-  if (geminiApiKey()) return;
+  if (nvidiaApiKey()) return;
   console.log(
-    "advisor: no GEMINI_API_KEY set, so the Advice tab will show as switched off. " +
+    "advisor: no NVIDIA_API_KEY set, so the Advice tab will show as switched off. " +
       "Set the variable, or add it to a .env file in the project root, to enable it. " +
       "Everything else works without one.",
   );
