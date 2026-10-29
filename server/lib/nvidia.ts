@@ -80,13 +80,26 @@ function errorText(payload: ChatResponse): string {
 const toolsUnsupported = new Set<string>();
 
 /**
+ * Plain chat, for a model that cannot take tools: replayed tool calls and their
+ * results are dropped, since such a model would reject them too.
+ */
+function withoutToolTraffic(messages: ChatMessage[]): ChatMessage[] {
+  return messages.filter((m) => m.role !== "tool" && !(m.role === "assistant" && m.tool_calls?.length));
+}
+
+/**
  * One chat completion against the NVIDIA-hosted model.
  *
- * Tools are offered when given. A model that does not support function calling
- * rejects the request outright, so that case falls back to plain chat once
- * rather than taking the whole advisor down with it.
+ * Tools are offered when given; `toolChoice: "none"` keeps them defined (so
+ * earlier tool messages stay valid) while requiring a written answer. A model
+ * that does not support function calling rejects the request outright, so that
+ * case falls back to plain chat rather than taking the whole advisor down.
  */
-export async function complete(messages: ChatMessage[], tools?: ToolDefinition[]): Promise<Completion> {
+export async function complete(
+  messages: ChatMessage[],
+  tools?: ToolDefinition[],
+  toolChoice: "auto" | "none" = "auto",
+): Promise<Completion> {
   const key = nvidiaApiKey();
   if (!key) throw new AdvisorError("The advisor is not configured on this server.", 501);
 
@@ -99,11 +112,11 @@ export async function complete(messages: ChatMessage[], tools?: ToolDefinition[]
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const body = {
       model,
-      messages,
+      messages: offerTools ? messages : withoutToolTraffic(messages),
       temperature: 0.4,
       max_tokens: 4096,
       stream: false,
-      ...(offerTools ? { tools, tool_choice: "auto" } : {}),
+      ...(offerTools ? { tools, tool_choice: toolChoice } : {}),
     };
 
     let res: Response;

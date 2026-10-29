@@ -19,11 +19,26 @@ const STATUS_WORDS: Record<AdvisorAction["status"], string> = {
 };
 
 /**
+ * An outcome note that an earlier version appended to the advisor's own text.
+ * Models imitate whatever their past turns look like, so with that note in the
+ * history they started *writing* proposals instead of calling the tool: no card
+ * appeared, and the text falsely claimed the entry was saved. It is stripped
+ * from stored history on replay and display, and from any new reply that still
+ * produces it.
+ */
+const OUTCOME_NOTE = /\[Proposed changes\](?:\n- [^\n]*)*/g;
+
+export function stripOutcomeNotes(text: string): string {
+  return text.replace(OUTCOME_NOTE, "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
  * Replays the stored thread as chat messages.
  *
- * Only the visible text is stored, not the raw tool traffic, so each past
- * proposal is restated alongside its outcome. That way the model knows what
- * was actually saved, and never assumes a dismissed proposal went through.
+ * Past proposals are replayed as the tool calls they really were, each followed
+ * by its outcome as the tool's result. The model therefore sees itself calling
+ * the tool, which is the behaviour to repeat, and learns what was actually
+ * saved without any of that being written into its own words.
  */
 function toMessages(systemInstruction: string, history: AdvisorMessage[]): ChatMessage[] {
   const messages: ChatMessage[] = [{ role: "system", content: systemInstruction }];
@@ -33,9 +48,26 @@ function toMessages(systemInstruction: string, history: AdvisorMessage[]): ChatM
       messages.push({ role: "user", content: m.text });
       continue;
     }
-    const outcomes = (m.actions ?? []).map((a) => `- ${a.summary}: ${STATUS_WORDS[a.status]}`);
-    const content = outcomes.length > 0 ? `${m.text}\n\n[Proposed changes]\n${outcomes.join("\n")}` : m.text;
-    messages.push({ role: "assistant", content });
+    const actions = m.actions ?? [];
+    if (actions.length > 0) {
+      messages.push({
+        role: "assistant",
+        content: null,
+        tool_calls: actions.map((a) => ({
+          id: a.id,
+          type: "function" as const,
+          function: { name: a.tool, arguments: JSON.stringify(a.args) },
+        })),
+      });
+      for (const a of actions) {
+        messages.push({
+          role: "tool",
+          tool_call_id: a.id,
+          content: JSON.stringify({ summary: a.summary, outcome: STATUS_WORDS[a.status] }),
+        });
+      }
+    }
+    messages.push({ role: "assistant", content: stripOutcomeNotes(m.text) });
   }
   return messages;
 }
@@ -69,13 +101,13 @@ export async function runAdvisorTurn(
   const actions: AdvisorAction[] = [];
 
   for (let step = 0; step < MAX_STEPS; step++) {
-    // On the last step tools are withheld, so the model has to answer with
-    // what it has rather than running out of steps mid-lookup.
+    // On the last step tool calls are switched off, so the model has to answer
+    // with what it has rather than running out of steps mid-lookup.
     const finalStep = step === MAX_STEPS - 1;
-    const { text, toolCalls } = await complete(messages, finalStep ? undefined : ADVISOR_TOOLS);
+    const { text, toolCalls } = await complete(messages, ADVISOR_TOOLS, finalStep ? "none" : "auto");
 
     if (toolCalls.length === 0) {
-      return { text, lookups, actions };
+      return { text: stripOutcomeNotes(text), lookups, actions };
     }
 
     messages.push({ role: "assistant", content: text || null, tool_calls: toolCalls });

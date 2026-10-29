@@ -3,7 +3,7 @@ import { advisorThreadKey } from "../lib/keys.ts";
 import { buildSnapshotText } from "../lib/snapshot.ts";
 import { buildSystemInstruction, STARTER_PROMPTS } from "../lib/advisor-prompt.ts";
 import { AdvisorError, advisorConfigured, advisorModel } from "../lib/nvidia.ts";
-import { runAdvisorTurn } from "../lib/advisor-agent.ts";
+import { runAdvisorTurn, stripOutcomeNotes } from "../lib/advisor-agent.ts";
 import { applyAction } from "../lib/advisor-tools.ts";
 import { todayDateString } from "../lib/aggregate.ts";
 import { json } from "../lib/http.ts";
@@ -23,6 +23,9 @@ export async function getAdvisorThreadHandler(_req: Request, kv: Store): Promise
   const thread = await readThread(kv);
   const body: AdvisorThread & { starters: string[]; model: string } = {
     ...thread,
+    // Older replies may carry a copied "[Proposed changes]" note claiming a
+    // save that never happened; it is not shown.
+    messages: thread.messages.map((m) => (m.role === "advisor" ? { ...m, text: stripOutcomeNotes(m.text) } : m)),
     enabled: advisorConfigured(),
     starters: STARTER_PROMPTS,
     model: advisorModel(),

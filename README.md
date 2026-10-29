@@ -22,6 +22,11 @@ Left              2,060
 A yearly cost either lands whole in the month it falls due, or — if you spread
 it — reserves a twelfth of itself every month so no single month takes the hit.
 
+An optional **spending target** sits below the spendable budget, and a pace bar
+shows whether the money is going faster than the month is. A separate **loans**
+ledger tracks money you have lent out — who has it, what has come back, and what
+is overdue — without ever touching the budget.
+
 It also has a **money advisor**: a chat that reads your actual figures and
 answers questions about purchases, loans either way, and where to put savings,
 reasoning within Ghanaian conditions. It is optional, and off unless a
@@ -47,6 +52,7 @@ shared/
   commitments.ts       — pure fixed-cost maths, shared so the server summary and
                          the client's yearly view cannot drift apart
   loans.ts             — loan balances and per-person grouping, shared the same way
+  pace.ts              — spending-target pace maths (see "Spending target and pace")
 server/
   main.ts              — entry point: connects to Mongo, serves the API and client
   router.ts            — route table
@@ -70,6 +76,7 @@ server/
 scripts/
   store.test.ts        — storage behaviour tests against a real mongod
   api.test.ts          — end-to-end API tests
+  pace.test.ts         — pace maths tests, no database needed
   export-deno-kv.deno.ts — one-off migration export (needs Deno; see below)
   import-kv-export.ts  — one-off migration import
 client/
@@ -81,11 +88,13 @@ client/
     lib/navigation.ts  — the two-route path switch (landing vs. tracker)
     lib/accumulation.ts — the month-on-month running total of what is left
     lib/money.ts       — the one place amounts are formatted and converted
-    components/        — AppHeader, BottomNav, MonthFlow, CommitmentForm,
-                         CommitmentsCard, AdvisorText, charts, ...
+    lib/loans.ts       — re-exports shared/loans.ts for the client
+    components/        — AppHeader, BottomNav, MonthFlow, PaceBar, CommitmentForm,
+                         CommitmentsCard, LoanForm, LoanDetail, AdvisorText,
+                         charts, ...
     components/landing/ — landing-page-only pieces
-    views/             — Landing, Dashboard, Add, Expenses, Commitments, Advisor,
-                         Settings
+    views/             — Landing, Dashboard, Add, Expenses, Commitments, Loans,
+                         Advisor, Settings
 ```
 
 ## Routes
@@ -146,8 +155,10 @@ is never a surprise.
 
 **How it is grounded.** `server/lib/snapshot.ts` renders the user's real figures
 as labelled plain text: this month's income, fixed costs, spendable budget and
-free-to-spend; every commitment and the annual load; six months of history with
-how often the budget was breached; and the category mix over three months. It is
+free-to-spend, plus the spending target and pace when one is set; every
+commitment and the annual load; six months of history with how often the budget
+was breached; the category mix over three months; and who owes the user money,
+marked as outside the budget. It is
 rebuilt on *every* turn, so advice always reflects the figures as they are now
 rather than as they were when the chat opened. The same string is served by
 `GET /api/advisor/context` and shown in the UI behind "See what it can read
@@ -195,12 +206,25 @@ Each is checked when proposed (a bad one goes back to the model as an error to
 fix or ask about), described in a summary the server writes rather than the
 model, and shown in the chat with Confirm and Dismiss. Only Confirm applies it,
 through the same handler and validation as the app's own form, and a proposal
-can be settled once. Past outcomes are replayed to the model on later turns, so
-it knows what was saved and what was turned down.
+can be settled once.
+
+On later turns each past proposal is replayed as the tool call it really was,
+followed by its outcome (confirmed, dismissed, failed) as the tool result. The
+model therefore sees itself *calling* the tool, which is the behaviour to
+repeat, and learns what was saved without that being written into its own
+words. An earlier version appended a "[Proposed changes]" note to the reply
+text instead; models copied it and started writing proposals in prose rather
+than calling the tool, so no Confirm card appeared and the text falsely
+claimed a save. `stripOutcomeNotes` in `server/lib/advisor-agent.ts` removes
+that note from stored history, on display, and from any new reply. On the
+final step of a turn the tools stay defined but `tool_choice` is `none`, so
+the model must answer with what it has.
 
 If the configured model does not support function calling, the API rejects the
 tool definitions; the advisor then carries on as plain chat for that model
-rather than failing.
+rather than failing, with replayed tool calls and results dropped from the
+history so they are not rejected too. The server remembers this per model for
+the life of the process.
 
 **Failure behaviour.** 429, 502 and 503 are retried with backoff; 401, 403 and 404 are
 reported as the configuration problems they are. When a turn fails the question
@@ -260,6 +284,30 @@ A known limitation: one large purchase early in the month makes `index` spike,
 because at that point very little of the month has elapsed to divide by. The
 figure is honest rather than damped, and `variance` in money is the steadier
 read.
+
+## Loans
+
+The **Lent** tab is a ledger of money the user has lent out. A loan records who
+has the money, how much, the date it went out, an optional agreed due date and a
+note; repayments are added against it over time.
+
+Loans never touch the month budget. Lending is not spending and a repayment is
+not income, so counting either would make "left to spend" dishonest. The
+advisor's snapshot carries them in a separate section saying exactly that.
+
+What is still owed is derived from the repayments rather than stored, in
+`shared/loans.ts`, so the two can never disagree:
+
+- `loanBalance` gives `repaid`, `outstanding`, `settled`, and `overdue` (a due
+  date has passed and the loan is not settled).
+- `loansByPerson` groups loans by person, ignoring case and extra spacing, so
+  "Kofi" and " kofi " are one person. People owing the most come first, then
+  anyone settled up; each person's loans are oldest first.
+
+The server refuses a repayment larger than what is still owed, a loan edited
+down below what has already been repaid, and a due date before the lending
+date. The advisor can propose `add_loan` and `record_loan_repayment`, which
+go through the same validation once confirmed.
 
 ## Currency
 
@@ -417,6 +465,16 @@ node scripts/store.test.ts   # storage semantics: prefix scans, insert-if-absent
 node scripts/api.test.ts     # end-to-end API behaviour
 ```
 
+The pace maths are pure arithmetic and need no database:
+
+```sh
+node scripts/pace.test.ts
+```
+
+`api.test.ts` checks whichever advisor path is in effect: with an
+`NVIDIA_API_KEY` (including one from `.env`) it makes a live call and accepts
+either an answer or a graceful error; without one it expects a 501.
+
 ## Deploying (Render)
 
 Render's native Node runtime runs this directly — no Docker needed. Either
@@ -486,13 +544,16 @@ One collection, `kv`, holding one document per record:
 
 The keys are:
 
-- `["settings"]` — default monthly salary, base and display currency, and the
-  benchmark rates the advisor reasons from
-- `["months", "YYYY-MM"]` — that month's salary override (if any) + add-ons
+- `["settings"]` — default monthly salary, default spending target, base and
+  display currency, and the benchmark rates the advisor reasons from
+- `["months", "YYYY-MM"]` — that month's salary and spending-target overrides
+  (if any) + add-ons
 - `["expenses", "YYYY-MM", "<ulid>"]` — one expense entry
 - `["commitments", "<ulid>"]` — one fixed cost: amount, `monthly` or `yearly`
   cadence, category, `startMonth` and optional `endMonth`, plus `dueDay`
   (monthly) or `dueMonth` + `spread` (yearly)
+- `["loans", "<ulid>"]` — one loan: person, amount, date, optional `dueDate`
+  and note, and its repayments embedded
 - `["rates", "<BASE>"]` — cached exchange-rate table for that base currency
 - `["advisor", "thread"]` — the advisor conversation, last 40 turns
 
@@ -531,9 +592,9 @@ position instead of restarting from zero at the left edge of the chart.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET / PUT | `/api/settings` | default salary + currency |
+| GET / PUT | `/api/settings` | default salary, spending target, currency, benchmark rates (merge, not replace) |
 | GET | `/api/months` | every month that has data, summarised |
-| GET / PUT | `/api/months/:month` | salary override + add-ons |
+| GET / PUT | `/api/months/:month` | salary and target overrides + add-ons |
 | GET | `/api/months/:month/summary` | the full month summary |
 | POST | `/api/months/:month/addons` | add one-off income |
 | DELETE | `/api/months/:month/addons/:id` | remove one-off income |
